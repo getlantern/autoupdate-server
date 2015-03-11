@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"path"
 	"testing"
 )
 
@@ -69,6 +70,78 @@ func TestUpdateAssetsMap(t *testing.T) {
 	}
 }
 
-func TestDownloadLowestVersionAndUpgradeIt(t *testing.T) {
-	// We can use the updateAssetsMap to look for the lowest version.
+func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
+	oldestVersionMap := make(map[string]map[string]*Asset)
+
+	// Using the updateAssetsMap to look for the oldest version of each release.
+	for os := range testClient.updateAssetsMap {
+		for arch := range testClient.updateAssetsMap[os] {
+			var oldestAsset *Asset
+			for i := range testClient.updateAssetsMap[os][arch] {
+				asset := testClient.updateAssetsMap[os][arch][i]
+				if oldestAsset == nil {
+					oldestAsset = asset
+				} else {
+					if VersionCompare(oldestAsset.v, asset.v) == Lower {
+						oldestAsset = asset
+					}
+				}
+			}
+			if oldestAsset != nil {
+				if oldestVersionMap[os] == nil {
+					oldestVersionMap[os] = make(map[string]*Asset)
+				}
+				oldestVersionMap[os][arch] = oldestAsset
+			}
+		}
+	}
+
+	// Let's download each one of the oldest versions.
+	var err error
+	var p *Patch
+
+	for os := range oldestVersionMap {
+		for arch := range oldestVersionMap[os] {
+			asset := oldestVersionMap[os][arch]
+			newAsset := testClient.latestAssetsMap[os][arch]
+
+			if asset == newAsset {
+				t.Logf("Skipping version %s %s %s", os, arch, asset.v)
+				// Skipping
+				continue
+			}
+
+			// Generate a binary diff of the two assets.
+			if p, err = GeneratePatch(asset.URL, newAsset.URL); err != nil {
+				t.Fatal(fmt.Errorf("Unable to generate patch: %q", err))
+			}
+
+			// Apply patch.
+			var oldAssetFile string
+			if oldAssetFile, err = downloadAsset(asset.URL); err != nil {
+				t.Fatal(err)
+			}
+
+			var newAssetFile string
+			if newAssetFile, err = downloadAsset(newAsset.URL); err != nil {
+				t.Fatal(err)
+			}
+
+			patchedFile := "_tests/" + path.Base(asset.URL)
+
+			if err = bspatch(oldAssetFile, patchedFile, p.File); err != nil {
+				t.Fatal(fmt.Sprintf("Failed to apply binary diff: %q", err))
+			}
+
+			// Compare the two versions.
+			if fileHash(oldAssetFile) == fileHash(newAssetFile) {
+				t.Fatal("Nothing to update, probably not a good test case.")
+			}
+
+			if fileHash(patchedFile) != fileHash(newAssetFile) {
+				t.Fatal("File hashes after patch must be equal.")
+			}
+		}
+	}
+
 }

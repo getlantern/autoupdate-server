@@ -7,6 +7,7 @@ import (
 	"sync"
 )
 
+// Arch holds architecture names.
 var Arch = struct {
 	X64 string
 	X86 string
@@ -17,6 +18,7 @@ var Arch = struct {
 	"arm",
 }
 
+// OS holds operating system names.
 var OS = struct {
 	Windows string
 	Linux   string
@@ -47,6 +49,7 @@ type Asset struct {
 	AssetInfo
 }
 
+// AssetInfo struct holds OS and Arch information of an asset.
 type AssetInfo struct {
 	OS   string
 	Arch string
