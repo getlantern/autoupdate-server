@@ -135,5 +135,19 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 }
 
 func getAssetInfo(s string) (*AssetInfo, error) {
-	return nil, fmt.Errorf("Not implemented.")
+	matches := updateAssetRe.FindStringSubmatch(s)
+	if len(matches) >= 3 {
+		if matches[1] != osWindows && matches[1] != osLinux && matches[1] != osDarwin {
+			return nil, fmt.Errorf("Unknown OS: \"%s\".", matches[1])
+		}
+		if matches[2] != archX64 && matches[2] != archX86 && matches[2] != archARM {
+			return nil, fmt.Errorf("Unknown architecture \"%s\".", matches[2])
+		}
+		info := &AssetInfo{
+			OS:   matches[1],
+			Arch: matches[2],
+		}
+		return info, nil
+	}
+	return nil, fmt.Errorf("Could not find asset info.")
 }

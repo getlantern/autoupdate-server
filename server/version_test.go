@@ -66,7 +66,7 @@ func TestIsVersionTag(t *testing.T) {
 	}
 }
 
-func TestIsUpdateAssset(t *testing.T) {
+func TestIsUpdateAsset(t *testing.T) {
 	if isUpdateAsset("autoupdate-binary-windows-x86") == false {
 		t.Fatal("Expecting true.")
 	}

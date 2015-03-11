@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	updateAssetRe = regexp.MustCompile(`^autoupdate-binary-([a-z]+)-([a-z]+)\.?.*$`)
-	versionTagRe  = regexp.MustCompile(`^v[0-9\-\.]+$`)
+	updateAssetRe = regexp.MustCompile(`^autoupdate-binary-(darwin|windows|linux)-(arm|x86|x64)\.?.*$`)
+	versionTagRe  = regexp.MustCompile(`^v[0-9][0-9a-z\-\.]*$`)
 	nonNumericRe  = regexp.MustCompile(`[^0-9\-\.]`)
 )
 
@@ -86,9 +86,9 @@ func numericValue(s string) (v []int) {
 }
 
 func isVersionTag(s string) bool {
-	return false
+	return versionTagRe.MatchString(s)
 }
 
 func isUpdateAsset(s string) bool {
-	return false
+	return updateAssetRe.MatchString(s)
 }
