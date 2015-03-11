@@ -37,10 +37,14 @@ type Asset struct {
 	id        int
 	v         []int
 	Name      string
-	OS        string
-	Arch      string
 	URL       string
 	LocalFile string
+	AssetInfo
+}
+
+type AssetInfo struct {
+	OS   string
+	Arch string
 }
 
 // ReleaseManager struct defines a repository to pull releases from.
@@ -128,4 +132,8 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 	}
 
 	return nil
+}
+
+func getAssetInfo(s string) (*AssetInfo, error) {
+	return nil, fmt.Errorf("Not implemented.")
 }

@@ -7,7 +7,9 @@ import (
 )
 
 var (
-	nonNumericRe = regexp.MustCompile(`[^0-9\-\.]`)
+	updateAssetRe = regexp.MustCompile(`^autoupdate-binary-([a-z]+)-([a-z]+)\.?.*$`)
+	versionTagRe  = regexp.MustCompile(`^v[0-9\-\.]+$`)
+	nonNumericRe  = regexp.MustCompile(`[^0-9\-\.]`)
 )
 
 // Output values for VersionCompare
@@ -81,4 +83,12 @@ func numericValue(s string) (v []int) {
 		v = append(v, nv)
 	}
 	return v
+}
+
+func isVersionTag(s string) bool {
+	return false
+}
+
+func isUpdateAsset(s string) bool {
+	return false
 }
