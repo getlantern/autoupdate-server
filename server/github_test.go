@@ -15,6 +15,13 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestListReleases(t *testing.T) {
-	r, e := testClient.GetReleases()
-	fmt.Printf("r: %v, e: %v\n", r, e)
+	if _, err := testClient.GetReleases(); err != nil {
+		t.Fatal(fmt.Errorf("Failed to pull releases: %q", err))
+	}
+}
+
+func TestUpdateAssetsMap(t *testing.T) {
+	if err := testClient.UpdateAssetsMap(); err != nil {
+		t.Fatal(fmt.Errorf("Failed to update assets map: %q", err))
+	}
 }
