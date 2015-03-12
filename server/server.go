@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// Initiative type.
 type Initiative string
 
 const (
@@ -12,7 +13,7 @@ const (
 	INITIATIVE_MANUAL            = "manual"
 )
 
-// The type of a binary patch, if any. Only bsdiff is supported
+// PatchType represents the type of a binary patch, if any. Only bsdiff is supported
 type PatchType string
 
 const (
@@ -20,6 +21,7 @@ const (
 	PATCHTYPE_NONE             = ""
 )
 
+// Params represent parameters sent by the go-update client.
 type Params struct {
 	// protocol version
 	Version int `json:"version"`
@@ -42,13 +44,14 @@ type Params struct {
 	//Tags map[string]string `json:"tags"`
 }
 
+// Result represents the answer to be sent to the client.
 type Result struct {
 	// should the update be applied automatically/manually
 	Initiative Initiative `json:"initiative"`
 	// url where to download the updated application
-	Url string `json:"url"`
+	URL string `json:"url"`
 	// a URL to a patch to apply
-	PatchUrl string `json:"patch_url"`
+	PatchURL string `json:"patch_url"`
 	// the patch format (only bsdiff supported at the moment)
 	PatchType PatchType `json:"patch_type"`
 	// version of the new application
@@ -70,7 +73,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 
 	// p must not be nil.
 	if p == nil {
-		return nil, fmt.Errorf("Expecting params.")
+		return nil, fmt.Errorf("Expecting params")
 	}
 
 	if !isVersionTag(p.AppVersion) {
@@ -78,26 +81,26 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	}
 
 	if p.Checksum == "" {
-		return nil, fmt.Errorf("Checksum must not be nil.")
+		return nil, fmt.Errorf("Checksum must not be nil")
 	}
 
 	if p.OS == "" {
-		return nil, fmt.Errorf("OS is required.")
+		return nil, fmt.Errorf("OS is required")
 	}
 
 	if p.Arch == "" {
-		return nil, fmt.Errorf("Arch is required.")
+		return nil, fmt.Errorf("Arch is required")
 	}
 
 	// Looking for the asset thay matches the current app checksum.
 	var current *Asset
-	if current, err = g.lookupAssetWithChecksum(current.OS, current.Arch, p.Checksum); err != nil {
+	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
 		return nil, ErrNoSuchAsset
 	}
 
 	// Looking if there is a newer version for the os/arch.
 	var update *Asset
-	if update, err = g.getProductUpdate(current.OS, current.Arch); err != nil {
+	if update, err = g.getProductUpdate(p.OS, p.Arch); err != nil {
 		return nil, fmt.Errorf("Could not lookup for updates.")
 	}
 
@@ -117,8 +120,8 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	// Generate result.
 	r := &Result{
 		Initiative: INITIATIVE_AUTO,
-		Url:        assetUrl(update.URL),
-		PatchUrl:   assetUrl(patch.File),
+		URL:        assetURL(update.URL),
+		PatchURL:   assetURL(patch.File),
 		PatchType:  PATCHTYPE_BSDIFF,
 		Version:    update.v,
 		Checksum:   update.Checksum,

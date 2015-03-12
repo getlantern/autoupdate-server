@@ -53,6 +53,6 @@ func downloadAsset(uri string) (localfile string, err error) {
 	return localfile, nil
 }
 
-func assetUrl(localfile string) (url string) {
+func assetURL(localfile string) (url string) {
 	return localfile
 }

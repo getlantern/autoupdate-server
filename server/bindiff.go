@@ -1,7 +1,7 @@
 package server
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -38,7 +38,7 @@ func fileHash(s string) string {
 	var err error
 	var fp *os.File
 
-	h := sha1.New()
+	h := sha256.New()
 
 	if fp, err = os.Open(s); err != nil {
 		log.Fatal("Failed to open file %s: %q", s, err)
@@ -87,7 +87,7 @@ func bsdiff(oldfile string, newfile string) (patchfile string, err error) {
 	oldfileHash := fileHash(oldfile)
 	newfileHash := fileHash(newfile)
 
-	patchfile = patchesDirectory + fmt.Sprintf("%x", sha1.Sum([]byte(oldfileHash+newfileHash))) + ".patch"
+	patchfile = patchesDirectory + fmt.Sprintf("%x", sha256.Sum256([]byte(oldfileHash+newfileHash))) + ".patch"
 
 	if fileExists(patchfile) {
 		// Patch already exists, no need to compute it again.

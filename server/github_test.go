@@ -82,6 +82,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 	for os := range testClient.updateAssetsMap {
 		for arch := range testClient.updateAssetsMap[os] {
 			var oldestAsset *Asset
+
 			for i := range testClient.updateAssetsMap[os][arch] {
 				asset := testClient.updateAssetsMap[os][arch][i]
 				if oldestAsset == nil {
@@ -96,6 +97,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				if oldestVersionMap[os] == nil {
 					oldestVersionMap[os] = make(map[string]*Asset)
 				}
+
 				oldestVersionMap[os][arch] = oldestAsset
 			}
 		}
@@ -186,6 +188,36 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 
 	if tests == 0 {
 		t.Fatal("Seems like there is not any newer software version to test with.")
+	}
+
+	// Let's walk over the array again but using CheckForUpdate instead.
+	for os := range oldestVersionMap {
+		for arch := range oldestVersionMap[os] {
+			asset := oldestVersionMap[os][arch]
+			params := Params{
+				AppVersion: asset.v,
+				OS:         asset.OS,
+				Arch:       asset.Arch,
+				Checksum:   asset.Checksum,
+			}
+
+			// fmt.Printf("params: %s", params)
+
+			_, err := testClient.CheckForUpdate(&params)
+			if err != nil {
+				if err == ErrNoUpdateAvailable {
+					// That's OK, let's make sure.
+					newAsset := testClient.latestAssetsMap[os][arch]
+					if asset != newAsset {
+						t.Fatal("CheckForUpdate said no update was available!")
+					}
+				} else {
+					t.Fatal("CheckForUpdate: ", err)
+				}
+			}
+
+			// fmt.Printf("r: %v, err: %v\n", r, err)
+		}
 	}
 
 }

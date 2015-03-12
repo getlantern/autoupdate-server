@@ -164,6 +164,10 @@ func (g *ReleaseManager) getProductUpdate(os string, arch string) (asset *Asset,
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	if g.latestAssetsMap == nil {
+		return nil, fmt.Errorf("No updates available.")
+	}
+
 	if g.latestAssetsMap[os] == nil {
 		return nil, fmt.Errorf("No such OS.")
 	}
@@ -178,6 +182,10 @@ func (g *ReleaseManager) getProductUpdate(os string, arch string) (asset *Asset,
 func (g *ReleaseManager) lookupAssetWithChecksum(os string, arch string, checksum string) (asset *Asset, err error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	if g.updateAssetsMap == nil {
+		return nil, fmt.Errorf("No updates available.")
+	}
 
 	if g.updateAssetsMap[os] == nil {
 		return nil, fmt.Errorf("No such OS.")
@@ -201,6 +209,9 @@ func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err er
 	defer g.mu.Unlock()
 
 	version := asset.v
+
+	asset.OS = os
+	asset.Arch = arch
 
 	if version == "" {
 		return fmt.Errorf("Missing asset version.")
