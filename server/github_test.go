@@ -141,6 +141,20 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 			if fileHash(patchedFile) != fileHash(newAssetFile) {
 				t.Fatal("File hashes after patch must be equal.")
 			}
+
+			var cs string
+			if cs, err = checksumForFile(patchedFile); err != nil {
+				t.Fatal("Could not get checksum for %s: %q", oldAssetFile, err)
+			}
+
+			if cs == asset.Checksum {
+				t.Fatal("Computed checksum for patchedFile must be different than the stored older asset checksum.")
+			}
+
+			if cs != newAsset.Checksum {
+				t.Fatal("Computed checksum for patchedFile must be equal to the stored newer asset checksum.")
+			}
+
 		}
 	}
 

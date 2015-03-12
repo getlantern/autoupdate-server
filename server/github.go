@@ -46,6 +46,7 @@ type Asset struct {
 	Name      string
 	URL       string
 	LocalFile string
+	Checksum  string
 	AssetInfo
 }
 
@@ -156,14 +157,25 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 	return nil
 }
 
-func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) error {
+func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	version := asset.v
+
 	if version == "" {
 		return fmt.Errorf("Missing asset version.")
 	}
+
+	var localfile string
+	if localfile, err = downloadAsset(asset.URL); err != nil {
+		return err
+	}
+
+	if asset.Checksum, err = checksumForFile(localfile); err != nil {
+		return err
+	}
+
 	// Pushing version.
 	if g.updateAssetsMap[os] == nil {
 		g.updateAssetsMap[os] = make(map[string]map[string]*Asset)
