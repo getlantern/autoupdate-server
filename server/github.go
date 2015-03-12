@@ -160,6 +160,42 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 	return nil
 }
 
+func (g *ReleaseManager) getProductUpdate(os string, arch string) (asset *Asset, err error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if g.latestAssetsMap[os] == nil {
+		return nil, fmt.Errorf("No such OS.")
+	}
+
+	if g.latestAssetsMap[os][arch] == nil {
+		return nil, fmt.Errorf("No such Arch.")
+	}
+
+	return g.latestAssetsMap[os][arch], nil
+}
+
+func (g *ReleaseManager) lookupAssetWithChecksum(os string, arch string, checksum string) (asset *Asset, err error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if g.updateAssetsMap[os] == nil {
+		return nil, fmt.Errorf("No such OS.")
+	}
+
+	if g.updateAssetsMap[os][arch] == nil {
+		return nil, fmt.Errorf("No such Arch.")
+	}
+
+	for _, a := range g.updateAssetsMap[os][arch] {
+		if a.Checksum == checksum {
+			return a, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Could not find a matching checksum in assets list.")
+}
+
 func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
