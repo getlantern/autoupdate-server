@@ -1,4 +1,5 @@
 *.swp
+*.pem
 server/_tests
 server/assets
 server/patches

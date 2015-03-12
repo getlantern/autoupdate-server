@@ -47,6 +47,7 @@ type Asset struct {
 	URL       string
 	LocalFile string
 	Checksum  string
+	Signature string
 	AssetInfo
 }
 
@@ -146,9 +147,11 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 					asset.v = rs[i].Version
 					info, err := getAssetInfo(asset.Name)
 					if err != nil {
-						return err
+						return fmt.Errorf("Could not get asset info: %q", err)
 					}
-					g.pushAsset(info.OS, info.Arch, &asset)
+					if err = g.pushAsset(info.OS, info.Arch, &asset); err != nil {
+						return fmt.Errorf("Could not push asset: %q", err)
+					}
 				}
 			}
 		}
@@ -173,6 +176,10 @@ func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err er
 	}
 
 	if asset.Checksum, err = checksumForFile(localfile); err != nil {
+		return err
+	}
+
+	if asset.Signature, err = signatureForFile(localfile); err != nil {
 		return err
 	}
 

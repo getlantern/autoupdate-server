@@ -71,6 +71,11 @@ func TestUpdateAssetsMap(t *testing.T) {
 }
 
 func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
+
+	if len(testClient.updateAssetsMap) == 0 {
+		t.Fatal("Assets map is empty.")
+	}
+
 	oldestVersionMap := make(map[string]map[string]*Asset)
 
 	// Using the updateAssetsMap to look for the oldest version of each release.
@@ -99,6 +104,12 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 	// Let's download each one of the oldest versions.
 	var err error
 	var p *Patch
+
+	if len(oldestVersionMap) == 0 {
+		t.Fatal("No older software versions to test with.")
+	}
+
+	tests := 0
 
 	for os := range oldestVersionMap {
 		for arch := range oldestVersionMap[os] {
@@ -144,7 +155,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 
 			var cs string
 			if cs, err = checksumForFile(patchedFile); err != nil {
-				t.Fatal("Could not get checksum for %s: %q", oldAssetFile, err)
+				t.Fatal("Could not get checksum for %s: %q", patchedFile, err)
 			}
 
 			if cs == asset.Checksum {
@@ -155,7 +166,26 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				t.Fatal("Computed checksum for patchedFile must be equal to the stored newer asset checksum.")
 			}
 
+			var ss string
+			if ss, err = signatureForFile(patchedFile); err != nil {
+				t.Fatal("Could not get signature for %s: %q", patchedFile, err)
+			}
+
+			if ss == asset.Signature {
+				t.Fatal("Computed signature for patchedFile must be different than the stored older asset signature.")
+			}
+
+			if ss != newAsset.Signature {
+				t.Fatal("Computed signature for patchedFile must be equal to the stored newer asset signature.")
+			}
+
+			tests++
+
 		}
+	}
+
+	if tests == 0 {
+		t.Fatal("Seems like there is not any newer software version to test with.")
 	}
 
 }
