@@ -1,20 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/getlantern/autoupdate-server/server"
-	"io/ioutil"
 	"log"
 	"net/http"
 )
 
 var releaseManager *server.ReleaseManager
-
-const (
-	patchesDirectory = "./server/patches"
-)
 
 type updateHandler struct {
 }
@@ -45,13 +38,8 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		defer r.Body.Close()
 
-		b, _ := ioutil.ReadAll(r.Body)
-
-		// TODO: This was only for testing.
-		log.Printf("body: %v", string(b))
-
 		var params server.Params
-		decoder := json.NewDecoder(bytes.NewBuffer(b))
+		decoder := json.NewDecoder(r.Body)
 
 		if err = decoder.Decode(&params); err != nil {
 			u.closeWithStatus(w, http.StatusBadRequest)
@@ -67,7 +55,9 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Printf("res: %v\n", res)
+		if res.PatchURL != "" {
+			res.PatchURL = publicAddr + res.PatchURL
+		}
 
 		var content []byte
 
@@ -90,7 +80,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/update", new(updateHandler))
-	mux.Handle("/patches", http.FileServer(http.Dir(patchesDirectory)))
+	mux.Handle("/patches/", http.StripPrefix("/patches/", http.FileServer(http.Dir(patchesDirectory))))
 
 	srv := http.Server{
 		Addr:    listenAddr,

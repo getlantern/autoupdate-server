@@ -14,4 +14,4 @@ to patch itself.
 
 ## How to run the autoupdate server
 
-
+## How to create a release
