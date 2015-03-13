@@ -13,8 +13,8 @@ var Arch = struct {
 	X86 string
 	ARM string
 }{
-	"x64",
-	"x86",
+	"amd64",
+	"386",
 	"arm",
 }
 

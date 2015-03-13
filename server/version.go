@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	updateAssetRe = regexp.MustCompile(`^autoupdate-binary-(darwin|windows|linux)-(arm|x86|x64)\.?.*$`)
+	updateAssetRe = regexp.MustCompile(`^autoupdate-binary-(darwin|windows|linux)-(arm|386|amd64)\.?.*$`)
 	versionTagRe  = regexp.MustCompile(`^v[0-9][0-9a-z\-\.]*$`)
 	nonNumericRe  = regexp.MustCompile(`[^0-9\-\.]`)
 )

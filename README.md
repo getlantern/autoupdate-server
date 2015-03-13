@@ -9,3 +9,9 @@ to patch itself.
 
 * Uses github releases as storage.
 * Generates binary diffs.
+
+## Requisites
+
+## How to run the autoupdate server
+
+

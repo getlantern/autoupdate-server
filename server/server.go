@@ -41,7 +41,7 @@ type Params struct {
 	// release channel (empty string means 'stable')
 	//Channel string `json:"-"`
 	// tags for custom update channels
-	//Tags map[string]string `json:"tags"`
+	Tags map[string]string `json:"tags"`
 }
 
 // Result represents the answer to be sent to the client.
@@ -76,6 +76,16 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		return nil, fmt.Errorf("Expecting params")
 	}
 
+	if p.Tags != nil {
+		// Compatibility with go-check.
+		if p.Tags["os"] != "" {
+			p.OS = p.Tags["os"]
+		}
+		if p.Tags["arch"] != "" {
+			p.Arch = p.Tags["arch"]
+		}
+	}
+
 	if !isVersionTag(p.AppVersion) {
 		return nil, fmt.Errorf("Expecting a version tag of the form vX.Y.Z.")
 	}
@@ -92,16 +102,27 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		return nil, fmt.Errorf("Arch is required")
 	}
 
-	// Looking for the asset thay matches the current app checksum.
-	var current *Asset
-	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
-		return nil, ErrNoSuchAsset
-	}
-
 	// Looking if there is a newer version for the os/arch.
 	var update *Asset
 	if update, err = g.getProductUpdate(p.OS, p.Arch); err != nil {
-		return nil, fmt.Errorf("Could not lookup for updates.")
+		return nil, fmt.Errorf("Could not lookup for updates: %s", err)
+	}
+
+	// Looking for the asset thay matches the current app checksum.
+	var current *Asset
+	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
+		// No such asset with the given checksum, nothing to compare.
+
+		r := &Result{
+			Initiative: INITIATIVE_AUTO,
+			URL:        assetURL(update.URL),
+			PatchType:  PATCHTYPE_NONE,
+			Version:    update.v,
+			Checksum:   update.Checksum,
+			Signature:  update.Signature,
+		}
+
+		return r, nil
 	}
 
 	// No update available.

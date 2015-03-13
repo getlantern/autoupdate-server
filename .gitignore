@@ -1,5 +1,6 @@
 *.swp
 *.pem
+autoupdate-server
+assets/
 server/_tests
-server/assets
 server/patches
