@@ -5,6 +5,7 @@ import (
 	"github.com/getlantern/autoupdate-server/server"
 	"log"
 	"net/http"
+	"time"
 )
 
 var releaseManager *server.ReleaseManager
@@ -12,26 +13,45 @@ var releaseManager *server.ReleaseManager
 type updateHandler struct {
 }
 
+// updateAssets checks for new assets released on the github releases page.
+func updateAssets() error {
+	log.Printf("Updating assets...")
+	if err := releaseManager.UpdateAssetsMap(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// backgroundUpdate periodically looks for releases.
+func backgroundUpdate() {
+	for {
+		time.Sleep(githubRefreshTime)
+		// Updating assets...
+		if err := updateAssets(); err != nil {
+			log.Printf("updateAssets: %s", err)
+		}
+	}
+}
+
 func init() {
 	// Creating release manager.
 	log.Printf("Starting release manager.")
 	releaseManager = server.NewReleaseManager(githubNamespace, githubRepo)
-	// Updating assets...
-	log.Printf("Updating assets...")
-	if err := releaseManager.UpdateAssetsMap(); err != nil {
-		log.Fatalf("Could not update assets: %q", err)
+	// Getting assets...
+	if err := updateAssets(); err != nil {
+		// In this case we will not be able to continue.
+		log.Fatal(err)
 	}
+	// Setting a goroutine for pulling updates periodically
+	go backgroundUpdate()
 }
 
 func (u *updateHandler) closeWithStatus(w http.ResponseWriter, status int) {
-	log.Printf("Status: %v", status)
 	w.WriteHeader(status)
 	w.Write([]byte(http.StatusText(status)))
 }
 
 func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Got request")
-
 	var err error
 	var res *server.Result
 
@@ -47,7 +67,7 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if res, err = releaseManager.CheckForUpdate(&params); err != nil {
-			log.Printf("Failed with error: %q", err)
+			log.Printf("releaseManager.CheckForUpdate failed with error: %q", err)
 			if err == server.ErrNoUpdateAvailable {
 				u.closeWithStatus(w, http.StatusNoContent)
 			}
