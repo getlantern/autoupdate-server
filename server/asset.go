@@ -1,12 +1,12 @@
 package server
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
+	"path"
 )
 
 const (
@@ -16,14 +16,24 @@ const (
 func init() {
 	err := os.MkdirAll(assetsDirectory, os.ModeDir|0700)
 	if err != nil {
-		log.Fatal("Could not create directory for storing assets: %q", err)
+		log.Fatalf("Could not create directory for storing assets: %q", err)
 	}
 }
 
 // downloadAsset grabs the contents of the body of the given URL and stores
-// then into $ASSETS_DIRECTORY/SHA1($URL).
+// then into $ASSETS_DIRECTORY/$BASENAME.SHA256_SUM($URL)
 func downloadAsset(uri string) (localfile string, err error) {
-	localfile = assetsDirectory + fmt.Sprintf("%x", sha1.Sum([]byte(uri)))
+	basename := path.Base(uri)
+
+	// We'll be appending 65 chars to create a local file name for the asset,
+	// this 60-char limit prevents creating a file name longer than 255 chars. We
+	// could allow a few more characters until 255 but 60 sounds like a sane
+	// limit.
+	if len(basename) > 60 {
+		basename = basename[:60]
+	}
+
+	localfile = assetsDirectory + fmt.Sprintf("%s.%x", basename, sha256.Sum256([]byte(uri)))
 
 	if !fileExists(localfile) {
 		var res *http.Response
@@ -51,8 +61,4 @@ func downloadAsset(uri string) (localfile string, err error) {
 	}
 
 	return localfile, nil
-}
-
-func assetURL(localfile string) (url string) {
-	return localfile
 }

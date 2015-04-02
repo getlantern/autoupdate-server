@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"github.com/getlantern/go-update"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
@@ -24,6 +23,10 @@ var (
 
 func init() {
 	privateKeyFile = os.Getenv(privateKeyEnv)
+}
+
+func SetPrivateKey(s string) {
+	privateKeyFile = s
 }
 
 func checksumForFile(file string) (checksumHex string, err error) {
