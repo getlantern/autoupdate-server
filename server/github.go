@@ -115,7 +115,7 @@ func (g *ReleaseManager) GetReleases() ([]Release, error) {
 
 	for i := range rels {
 		version := *rels[i].TagName
-		v, err := semver.New(version)
+		v, err := semver.Parse(version)
 		if err != nil {
 			log.Debugf("Release %v is not semantically versioned, ignoring: %v", version, err)
 			continue
