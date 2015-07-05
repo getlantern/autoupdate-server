@@ -8,9 +8,11 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"github.com/getlantern/go-update"
 	"io/ioutil"
+	"log"
 	"os"
+
+	"github.com/getlantern/go-update"
 )
 
 const (

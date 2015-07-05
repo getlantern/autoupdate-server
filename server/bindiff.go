@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -113,8 +114,8 @@ func bsdiff(oldfile string, newfile string) (patchfile string, err error) {
 	return patchfile, nil
 }
 
-// GeneratePatch compares the contents of two URLs and generates a patch.
-func GeneratePatch(oldfileURL string, newfileURL string) (p *Patch, err error) {
+// generatePatch compares the contents of two URLs and generates a patch.
+func generatePatch(oldfileURL string, newfileURL string) (p *Patch, err error) {
 	generatePatchMu.Lock()
 	defer generatePatchMu.Unlock()
 
