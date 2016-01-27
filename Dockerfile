@@ -26,10 +26,13 @@ ENV mkdir -p $APPSRC_DIR
 COPY ./ $APPSRC_DIR/
 
 RUN cd $APPSRC_DIR && go get -d ./...
-RUN cd $APPSRC_DIR && ls -la
 RUN glock sync $PACKAGE_NAME
-RUN go build -o /bin/app $PACKAGE_NAME
+RUN go build -o /bin/autoupdate-server $PACKAGE_NAME
 
 VOLUME [ "/keys", $APPSRC_DIR, $WORKDIR ]
 
-ENTRYPOINT ["/bin/app"]
+WORKDIR $WORKDIR
+
+ENTRYPOINT ["/bin/autoupdate-server"]
+
+CMD ["-k", "/keys/private.key", "-l", ":9999", "-p", "https://update.getlantern.org/", "-o", "getlantern", "-n", "lantern"]
