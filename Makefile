@@ -3,3 +3,6 @@ all: clean
 
 clean:
 	rm -rf autoupdate-server patches assets
+
+docker:
+	docker build -t getlantern/autoudate-server .
