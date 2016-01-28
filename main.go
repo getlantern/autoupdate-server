@@ -50,8 +50,11 @@ func backgroundUpdate() {
 
 func (u *updateHandler) closeWithStatus(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
+	if status == http.StatusNoContent {
+		return
+	}
 	if _, err := w.Write([]byte(http.StatusText(status))); err != nil {
-		log.Debugf("Unable to write status: %v", err)
+		log.Debugf("Unable to write status %d: %v", status, err)
 	}
 }
 
@@ -60,11 +63,7 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var res *server.Result
 
 	if r.Method == "POST" {
-		defer func() {
-			if err := r.Body.Close(); err != nil {
-				log.Debugf("Unable to close request body: %v", err)
-			}
-		}()
+		defer r.Body.Close()
 
 		var params server.Params
 		decoder := json.NewDecoder(r.Body)
@@ -75,18 +74,16 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if res, err = releaseManager.CheckForUpdate(&params); err != nil {
-			log.Debugf("CheckForUpdate failed with error: %q", err)
 			if err == server.ErrNoUpdateAvailable {
-				log.Debugf("Got query from client %q/%q, no update available.", params.AppVersion, params.OS)
 				u.closeWithStatus(w, http.StatusNoContent)
 				return
 			}
-			log.Debugf("Got query from client %q/%q: %q.", err)
+			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.AppVersion, params.OS, err)
 			u.closeWithStatus(w, http.StatusExpectationFailed)
 			return
 		}
 
-		log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
+		//log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
 
 		if res.PatchURL != "" {
 			res.PatchURL = *flagPublicAddr + res.PatchURL
