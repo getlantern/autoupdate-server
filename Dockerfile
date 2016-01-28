@@ -1,6 +1,8 @@
-FROM debian
+FROM debian:jessie
 
-RUN apt-get update && apt-get install -y ca-certificates
+RUN apt-get update
+RUN apt-get install -y apt-transport-https
+RUN apt-get install -y ca-certificates
 RUN apt-get install -y bsdiff git curl
 
 ENV PACKAGE_NAME github.com/getlantern/autoupdate-server
