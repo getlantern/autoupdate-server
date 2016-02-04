@@ -31,7 +31,7 @@ deploy: clean
 	ssh $(DEPLOY_URL) 'cd ~/deploy && make docker && PRIVATE_KEY_DIR=~/private WORKDIR=~/tmp make docker-run'
 
 production:
-	DEPLOY_URL=deploy@162.243.50.247 make deploy
+	DEPLOY_URL=deploy@update.getlantern.org make deploy
 
 stage:
 	DEPLOY_URL=deploy@update-stage.getlantern.org make deploy
