@@ -10,6 +10,15 @@ import (
 )
 
 var (
+	fileHashMap   map[string]string
+	fileHashMapMu sync.Mutex
+)
+
+func init() {
+	fileHashMap = map[string]string{}
+}
+
+var (
 	generatePatchMu sync.Mutex
 )
 
@@ -39,6 +48,13 @@ func fileExists(s string) bool {
 }
 
 func fileHash(s string) string {
+	fileHashMapMu.Lock()
+	defer fileHashMapMu.Unlock()
+
+	if hash, ok := fileHashMap[s]; ok {
+		return hash
+	}
+
 	var err error
 	var fp *os.File
 
@@ -53,7 +69,8 @@ func fileHash(s string) string {
 		log.Fatalf("Failed to read file %s: %q", s, err)
 	}
 
-	return fmt.Sprintf("%x", h.Sum(nil))
+	fileHashMap[s] = fmt.Sprintf("%x", h.Sum(nil))
+	return fileHashMap[s]
 }
 
 func bspatch(oldfile string, newfile string, patchfile string) (err error) {
@@ -80,7 +97,6 @@ func bspatch(oldfile string, newfile string, patchfile string) (err error) {
 }
 
 func bsdiff(oldfile string, newfile string) (patchfile string, err error) {
-
 	if !fileExists(oldfile) {
 		return "", fmt.Errorf("File %s does not exist.", oldfile)
 	}

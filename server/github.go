@@ -163,6 +163,11 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 		return err
 	}
 
+	// Resetting file hashes.
+	fileHashMapMu.Lock()
+	fileHashMap = map[string]string{}
+	fileHashMapMu.Unlock()
+
 	log.Debugf("Getting assets...")
 	for i := range rs {
 		log.Debugf("Getting assets for release %q...", rs[i].Version)

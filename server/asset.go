@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"time"
 )
 
 const (
@@ -41,22 +42,21 @@ func downloadAsset(uri string) (localfile string, err error) {
 		var body io.Reader
 		var res *http.Response
 
-		if res, err = http.Get(uri); err != nil {
+		c := http.Client{Timeout: time.Second * 30}
+		if res, err = c.Get(uri); err != nil {
 			return "", err
 		}
+		defer res.Body.Close()
 
 		if res.StatusCode != http.StatusOK {
 			return "", fmt.Errorf("Expecting 200 OK, got: %s", res.Status)
 		}
-
-		defer res.Body.Close()
 
 		var fp *os.File
 
 		if fp, err = os.Create(localfile); err != nil {
 			return "", err
 		}
-
 		defer fp.Close()
 
 		if fileExt == ".bz2" {
