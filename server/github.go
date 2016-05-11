@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	updateAssetRe = regexp.MustCompile(`^update_(darwin|windows|linux)_(arm|386|amd64)\.?.*$`)
+	updateAssetRe = regexp.MustCompile(`^update_(darwin|windows|linux|android)_(arm|386|amd64)\.?.*$`)
 
 	emptyVersion semver.Version
 )
@@ -32,10 +32,12 @@ var OS = struct {
 	Windows string
 	Linux   string
 	Darwin  string
+	Android string
 }{
 	"windows",
 	"linux",
 	"darwin",
+	"android"
 }
 
 // Release struct represents a single github release.
