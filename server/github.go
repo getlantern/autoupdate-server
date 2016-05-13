@@ -323,7 +323,7 @@ func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err er
 func getAssetInfo(s string) (*AssetInfo, error) {
 	matches := updateAssetRe.FindStringSubmatch(s)
 	if len(matches) >= 3 {
-		if matches[1] != OS.Windows && matches[1] != OS.Linux && matches[1] != OS.Darwin {
+		if matches[1] != OS.Windows && matches[1] != OS.Linux && matches[1] != OS.Darwin && matches[1] != OS.Android {
 			return nil, fmt.Errorf("Unknown OS: \"%s\".", matches[1])
 		}
 		if matches[2] != Arch.X64 && matches[2] != Arch.X86 && matches[2] != Arch.ARM {

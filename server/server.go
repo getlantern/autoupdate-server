@@ -91,12 +91,14 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		}
 	}
 
-	if p.Checksum == "" {
-		return nil, fmt.Errorf("Checksum must not be nil")
-	}
-
 	if p.OS == "" {
 		return nil, fmt.Errorf("OS is required")
+	}
+
+	// The checksum is optional if the OS is Android
+	// since we aren't doing binary diffs
+	if p.Checksum == "" && p.OS != "android" {
+		return nil, fmt.Errorf("Checksum must not be nil")
 	}
 
 	if p.Arch == "" {
