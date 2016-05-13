@@ -97,7 +97,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 
 	// The checksum is optional if the OS is Android
 	// since we aren't doing binary diffs
-	if p.OS != "android" && p.Checksum == "" {
+	if p.OS != OS.Android && p.Checksum == "" {
 		return nil, fmt.Errorf("Checksum must not be nil")
 	}
 
@@ -141,13 +141,10 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		return nil, ErrNoUpdateAvailable
 	}
 
-	// Looking for the asset thay matches the current app checksum.
-	var current *Asset
-	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
-		// No such asset with the given checksum, nothing to compare. Making the
-		// client download the whole binary.
+	// A newer version is available!
 
-		r := &Result{
+	fullResult := func(update *Asset) *Result {
+		return &Result{
 			Initiative: INITIATIVE_AUTO,
 			URL:        update.URL,
 			PatchType:  PATCHTYPE_NONE,
@@ -155,8 +152,20 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 			Checksum:   update.Checksum,
 			Signature:  update.Signature,
 		}
+	}
 
-		return r, nil
+	if p.OS == OS.Android {
+		// There's currently no way to do binary diffs on Android
+		// return the full binary to the client
+		return fullResult(update), nil
+	}
+
+	// Looking for the asset thay matches the current app checksum.
+	var current *Asset
+	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
+		// No such asset with the given checksum, nothing to compare. Making the
+		// client download the full binary
+		return fullResult(update), nil
 	}
 
 	// A newer version is available!
