@@ -37,7 +37,7 @@ var OS = struct {
 	"windows",
 	"linux",
 	"darwin",
-	"android"
+	"android",
 }
 
 // Release struct represents a single github release.
