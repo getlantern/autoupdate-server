@@ -155,8 +155,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	}
 
 	if p.OS == OS.Android {
-		// There's currently no way to do binary diffs on Android
-		// return the full binary to the client
+		// if Android, stop here and return the full binary to the client
 		return fullResult(update), nil
 	}
 
