@@ -148,14 +148,16 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
 		// No such asset with the given checksum, nothing to compare. Making the
 		// client download the full binary
-		return &Result{
+		r := &Result{
 			Initiative: INITIATIVE_AUTO,
 			URL:        update.URL,
 			PatchType:  PATCHTYPE_NONE,
 			Version:    update.v.String(),
 			Checksum:   update.Checksum,
 			Signature:  update.Signature,
-		}, nil
+		}
+
+		return r, nil
 	}
 
 	// Generate a binary diff of the two assets.
