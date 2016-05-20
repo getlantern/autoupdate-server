@@ -158,8 +158,6 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		}, nil
 	}
 
-	// A newer version is available!
-
 	// Generate a binary diff of the two assets.
 	var patch *Patch
 	if patch, err = generatePatch(current.URL, update.URL); err != nil {
