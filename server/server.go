@@ -143,7 +143,11 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 
 	// A newer version is available!
 
-	fullResult := func(update *Asset) *Result {
+	// Looking for the asset thay matches the current app checksum.
+	var current *Asset
+	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
+		// No such asset with the given checksum, nothing to compare. Making the
+		// client download the full binary
 		return &Result{
 			Initiative: INITIATIVE_AUTO,
 			URL:        update.URL,
@@ -151,20 +155,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 			Version:    update.v.String(),
 			Checksum:   update.Checksum,
 			Signature:  update.Signature,
-		}
-	}
-
-	if p.OS == OS.Android {
-		// if Android, stop here and return the full binary to the client
-		return fullResult(update), nil
-	}
-
-	// Looking for the asset thay matches the current app checksum.
-	var current *Asset
-	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
-		// No such asset with the given checksum, nothing to compare. Making the
-		// client download the full binary
-		return fullResult(update), nil
+		}, nil
 	}
 
 	// A newer version is available!

@@ -219,6 +219,10 @@ func (g *ReleaseManager) lookupAssetWithChecksum(os string, arch string, checksu
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	if os == OS.Android {
+		return nil, fmt.Errorf("Checksums disabled for Android.")
+	}
+
 	if g.updateAssetsMap == nil {
 		return nil, fmt.Errorf("No updates available.")
 	}
