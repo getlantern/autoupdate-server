@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	updateAssetRe = regexp.MustCompile(`^update_(darwin|windows|linux)_(arm|386|amd64)\.?.*$`)
+	updateAssetRe = regexp.MustCompile(`^update_(darwin|windows|linux|android)_(arm|386|amd64)\.?.*$`)
 
 	emptyVersion semver.Version
 )
@@ -32,10 +32,12 @@ var OS = struct {
 	Windows string
 	Linux   string
 	Darwin  string
+	Android string
 }{
 	"windows",
 	"linux",
 	"darwin",
+	"android",
 }
 
 // Release struct represents a single github release.
@@ -217,6 +219,10 @@ func (g *ReleaseManager) lookupAssetWithChecksum(os string, arch string, checksu
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	if os == OS.Android {
+		return nil, fmt.Errorf("Checksums disabled for Android.")
+	}
+
 	if g.updateAssetsMap == nil {
 		return nil, fmt.Errorf("No updates available.")
 	}
@@ -321,7 +327,7 @@ func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err er
 func getAssetInfo(s string) (*AssetInfo, error) {
 	matches := updateAssetRe.FindStringSubmatch(s)
 	if len(matches) >= 3 {
-		if matches[1] != OS.Windows && matches[1] != OS.Linux && matches[1] != OS.Darwin {
+		if matches[1] != OS.Windows && matches[1] != OS.Linux && matches[1] != OS.Darwin && matches[1] != OS.Android {
 			return nil, fmt.Errorf("Unknown OS: \"%s\".", matches[1])
 		}
 		if matches[2] != Arch.X64 && matches[2] != Arch.X86 && matches[2] != Arch.ARM {
