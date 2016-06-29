@@ -6,6 +6,8 @@ WORKDIR?=workdir
 
 DEPLOY_URL ?= deploy@update-stage.getlantern.org
 
+RUN_MODE ?=
+
 clean:
 	rm -rf autoupdate-server patches assets workdir
 
@@ -17,6 +19,7 @@ docker-run:
 	(docker stop $(DOCKER_NAME) || exit 0) && \
 	(docker rm $(DOCKER_NAME) || exit 0) && \
 	docker run -d  \
+		-e RUN_MODE="$(RUN_MODE)" \
 		-p 127.0.0.1:9999:9999 \
 		--privileged \
 		-v $(WORKDIR):/app \
@@ -29,6 +32,9 @@ docker-run:
 deploy: clean
 	rsync -av --delete --exclude ".git" --exclude ".*.sw?" . $(DEPLOY_URL):~/deploy && \
 	ssh $(DEPLOY_URL) 'cd ~/deploy && make docker && PRIVATE_KEY_DIR=~/private WORKDIR=~/tmp make docker-run'
+
+mock-server: docker
+	PRIVATE_KEY_DIR=$(PWD)/_resources/example-keys WORKDIR=/tmp RUN_MODE=mock $(MAKE) docker-run
 
 production:
 	DEPLOY_URL=deploy@update.getlantern.org make deploy

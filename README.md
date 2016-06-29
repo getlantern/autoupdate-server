@@ -96,3 +96,11 @@ running app.
 ```sh
 # 2015/03/13 18:22:43 Starting up HTTP server at :9197.
 ```
+
+## Local testing
+
+Use `-tags mock` to build a binary that mocks Github's API responses.
+
+```
+make mock-server
+```

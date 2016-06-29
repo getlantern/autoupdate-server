@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"sync"
@@ -100,6 +101,16 @@ func NewReleaseManager(owner string, repo string) *ReleaseManager {
 		latestAssetsMap: make(map[string]map[string]*Asset),
 	}
 
+	if mockServerAddr != "" {
+		uri, err := url.Parse("http://" + mockServerAddr)
+		if err != nil {
+			panic(err.Error())
+		}
+		ghc.client.BaseURL = uri
+		ghc.client.UploadURL = uri
+		log.Debugf("Mocking Github API.")
+	}
+
 	return ghc
 }
 
@@ -111,17 +122,14 @@ func (g *ReleaseManager) getReleases() ([]Release, error) {
 		opt := &github.ListOptions{Page: page}
 
 		rels, _, err := g.client.Repositories.ListReleases(g.owner, g.repo, opt)
-
 		if err != nil {
 			return nil, err
 		}
-
 		if len(rels) == 0 {
 			break
 		}
 
 		releases = make([]Release, 0, len(rels))
-
 		for i := range rels {
 			version := *rels[i].TagName
 			v, err := semver.Parse(version)
@@ -148,7 +156,6 @@ func (g *ReleaseManager) getReleases() ([]Release, error) {
 	}
 
 	sort.Sort(sort.Reverse(releasesByID(releases)))
-
 	return releases, nil
 }
 

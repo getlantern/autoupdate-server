@@ -13,8 +13,8 @@ import (
 
 var (
 	flagPrivateKey         = flag.String("k", "", "Path to private key.")
-	flagLocalAddr          = flag.String("l", ":6868", "Local bind address.")
-	flagPublicAddr         = flag.String("p", "http://127.0.0.1:6868/", "Public address.")
+	flagLocalAddr          = flag.String("l", ":9999", "Local bind address.")
+	flagPublicAddr         = flag.String("p", "http://127.0.0.1:9999/", "Public address.")
 	flagGithubOrganization = flag.String("o", "getlantern", "Github organization.")
 	flagGithubProject      = flag.String("n", "lantern", "Github project name.")
 	flagHelp               = flag.Bool("h", false, "Shows help.")

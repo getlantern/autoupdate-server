@@ -10,7 +10,7 @@ ENV PACKAGE_NAME github.com/getlantern/autoupdate-server
 ENV WORKDIR /app
 RUN mkdir -p $WORKDIR
 
-ENV GO_VERSION go1.5.3
+ENV GO_VERSION go1.6.2
 
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
@@ -27,14 +27,16 @@ ENV APPSRC_DIR /go/src/$PACKAGE_NAME
 ENV mkdir -p $APPSRC_DIR
 COPY ./ $APPSRC_DIR/
 
+RUN cp $APPSRC_DIR/bin/entrypoint.sh /bin/entrypoint.sh
+
 RUN cd $APPSRC_DIR && go get -d ./...
 RUN glock sync $PACKAGE_NAME
+
 RUN go build -o /bin/autoupdate-server $PACKAGE_NAME
+RUN go build -tags mock -o /bin/autoupdate-server-mock $PACKAGE_NAME
 
 VOLUME [ "/keys", $APPSRC_DIR, $WORKDIR ]
 
 WORKDIR $WORKDIR
 
-ENTRYPOINT ["/bin/autoupdate-server"]
-
-CMD ["-k", "/keys/private.key", "-l", ":9999", "-p", "https://update.getlantern.org/", "-o", "getlantern", "-n", "lantern"]
+ENTRYPOINT ["/bin/entrypoint.sh"]
