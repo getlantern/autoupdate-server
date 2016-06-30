@@ -97,10 +97,54 @@ running app.
 # 2015/03/13 18:22:43 Starting up HTTP server at :9197.
 ```
 
-## Local testing
+## Testing autoupdates locally
 
-Use `-tags mock` to build a binary that mocks Github's API responses.
+Use the `mock` build tag to build a binary that mocks Github's API responses.
+
+```
+go build -tags mock github.com/getlantern/autoupdate-server
+```
+
+The you can run this binary using the publicly available private key for
+testing:
+
+```
+autoupdate-server \
+	-k _resources/example-keys/private.key \
+	-l 127.0.0.1:9999 \
+	-p http://127.0.0.1:9999/ \
+	-o getlantern \
+	-n lantern
+```
+
+Alternatively, you could use the `Makefile` script that automatizes this task by
+using a docker container:
 
 ```
 make mock-server
 ```
+
+A mock server will be available at `127.0.0.1:9999`, you can point Lantern to
+that server by editing the `updateserverurl` property on the
+`lantern-x.y.z.yaml` file:
+
+```yaml
+updateserverurl: http://127.0.0.1:9999
+```
+
+Make sure the Lantern binary uses the public key that matches the private key
+for the mock server by building with the `mockupdate` build tag:
+
+```
+cd $GOPATH/src/github.com/getlantern/lantern
+BUILD_TAGS=mockupdate make linux-amd64
+```
+
+And depending on your needs you can use different `VERSION` values, like:
+
+```
+VERSION=1.0.0 BUILD_TAGS=mockupdate make linux-amd64
+```
+
+The above command will produce a Lantern binary that will accept an update from
+the mock server.
