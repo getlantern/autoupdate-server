@@ -20,7 +20,7 @@ docker-run:
 	(docker rm $(DOCKER_NAME) || exit 0) && \
 	docker run -d  \
 		-e RUN_MODE="$(RUN_MODE)" \
-		-p 127.0.0.1:9999:9999 \
+		-p 0.0.0.0:9999:9999 \
 		--privileged \
 		-v $(WORKDIR):/app \
 		-v $(PRIVATE_KEY_DIR):/keys \
@@ -35,6 +35,9 @@ deploy: clean
 
 mock-server: docker
 	PRIVATE_KEY_DIR=$(PWD)/_resources/example-keys WORKDIR=/tmp RUN_MODE=mock $(MAKE) docker-run
+
+mock-server-logs:
+	docker logs --tail 20 -f $(DOCKER_NAME)
 
 production:
 	DEPLOY_URL=deploy@update.getlantern.org make deploy
