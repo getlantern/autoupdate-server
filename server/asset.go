@@ -68,7 +68,8 @@ func downloadAsset(uri string) (localfile string, err error) {
 		if _, err = io.Copy(fp, body); err != nil {
 			return "", err
 		}
-
+	} else {
+		log.Debugf("Asset %s already exists.", uri)
 	}
 
 	return localfile, nil

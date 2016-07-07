@@ -58,15 +58,22 @@ func (u *updateHandler) closeWithStatus(w http.ResponseWriter, status int) {
 	}
 }
 
+func getIP(r *http.Request) string {
+	return r.Header.Get("X-Forwarded-For")
+}
+
 func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var res *server.Result
+
+	ip := getIP(r)
 
 	if r.Method == "POST" {
 		defer r.Body.Close()
 
 		var params server.Params
 		decoder := json.NewDecoder(r.Body)
+		log.Debugf("%s: Got", ip)
 
 		if err = decoder.Decode(&params); err != nil {
 			u.closeWithStatus(w, http.StatusBadRequest)
@@ -78,16 +85,18 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				u.closeWithStatus(w, http.StatusNoContent)
 				return
 			}
-			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.AppVersion, params.OS, err)
+			log.Debugf("%s: CheckForUpdate failed. OS/Version: %s/%s, error: %q", ip, params.AppVersion, params.OS, err)
 			u.closeWithStatus(w, http.StatusExpectationFailed)
 			return
 		}
 
-		//log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
+		log.Debugf("%s: Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", ip, params.AppVersion, params.OS, res.Version, res.PatchType)
 
 		if res.PatchURL != "" {
 			res.PatchURL = *flagPublicAddr + res.PatchURL
 		}
+
+		log.Debugf("%s: Patch URL: %v", ip, res.PatchURL)
 
 		var content []byte
 
@@ -99,7 +108,7 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		if _, err := w.Write(content); err != nil {
-			log.Debugf("Unable to write response: %v", err)
+			log.Debugf("%s: Unable to write response: %v", ip, err)
 		}
 		return
 	}

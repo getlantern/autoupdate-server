@@ -96,6 +96,7 @@ func bsdiff(oldfile string, newfile string) (patchfile string, err error) {
 
 	if fileExists(patchfile) {
 		// Patch already exists, no need to compute it again.
+		log.Debugf("Patch already there: %v", patchfile)
 		return patchfile, nil
 	}
 
