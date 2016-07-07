@@ -146,5 +146,11 @@ And depending on your needs you can use different `VERSION` values, like:
 VERSION=1.0.0 BUILD_TAGS=mockupdate make linux-amd64
 ```
 
+You can also change the URL of the update server, like this:
+
+```
+UPDATE_SERVER_URL=http://10.0.0.99 BUILD_TAGS="-mockupdate" VERSION=1.0.0 make darwin
+```
+
 The above command will produce a Lantern binary that will accept an update from
 the mock server.
