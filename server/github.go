@@ -118,7 +118,7 @@ func NewReleaseManager(owner string, repo string) *ReleaseManager {
 
 // getReleases queries github for all product releases.
 func (g *ReleaseManager) getReleases() ([]Release, error) {
-	var releases []Release
+	releases := []Release{}
 
 	for page := 1; true; page++ {
 		opt := &github.ListOptions{Page: page}
@@ -131,7 +131,6 @@ func (g *ReleaseManager) getReleases() ([]Release, error) {
 			break
 		}
 
-		releases = make([]Release, 0, len(rels))
 		for i := range rels {
 			version := *rels[i].TagName
 			v, err := semver.Parse(version)
@@ -171,6 +170,7 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 	if rs, err = g.getReleases(); err != nil {
 		return err
 	}
+	log.Debugf("Found %d releases", len(rs))
 
 	// Resetting file hashes.
 	fileHashMapMu.Lock()

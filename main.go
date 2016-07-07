@@ -78,7 +78,7 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				u.closeWithStatus(w, http.StatusNoContent)
 				return
 			}
-			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.AppVersion, params.OS, err)
+			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
 			u.closeWithStatus(w, http.StatusExpectationFailed)
 			return
 		}
@@ -146,5 +146,4 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("ListenAndServe: ", err)
 	}
-
 }
