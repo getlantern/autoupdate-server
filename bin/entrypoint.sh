@@ -10,7 +10,7 @@ if [ "$RUN_MODE" = "mock" ]; then
 else
   /bin/autoupdate-server \
     -k /keys/private.key \
-    -l 127.0.0.1:9999 \
+    -l 0.0.0.0:9999 \
     -p https://update.getlantern.org/ \
     -o getlantern \
     -n lantern
