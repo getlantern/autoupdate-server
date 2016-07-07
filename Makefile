@@ -20,7 +20,7 @@ docker-run:
 	(docker rm $(DOCKER_NAME) || exit 0) && \
 	docker run -d  \
 		-e RUN_MODE="$(RUN_MODE)" \
-		-p 0.0.0.0:9999:9999 \
+		-p 127.0.0.1:9999:9999 \
 		--privileged \
 		-v $(WORKDIR):/app \
 		-v $(PRIVATE_KEY_DIR):/keys \
