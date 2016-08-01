@@ -30,21 +30,14 @@ const (
 type Params struct {
 	// protocol version
 	Version int `json:"version"`
-	// identifier of the application to update
-	//AppId string `json:"app_id"`
-
 	// version of the application updating itself
 	AppVersion string `json:"app_version"`
 	// operating system of target platform
 	OS string `json:"-"`
 	// hardware architecture of target platform
 	Arch string `json:"-"`
-	// application-level user identifier
-	//UserId string `json:"user_id"`
 	// checksum of the binary to replace (used for returning diff patches)
 	Checksum string `json:"checksum"`
-	// release channel (empty string means 'stable')
-	//Channel string `json:"-"`
 	// tags for custom update channels
 	Tags map[string]string `json:"tags"`
 }
@@ -146,8 +139,8 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	// Looking for the asset thay matches the current app checksum.
 	var current *Asset
 	if current, err = g.lookupAssetWithChecksum(p.OS, p.Arch, p.Checksum); err != nil {
-		// No such asset with the given checksum, nothing to compare. Making the
-		// client download the full binary
+		// No such asset with the given checksum, nothing to compare. Tell the
+		// client to download the full binary
 		r := &Result{
 			Initiative: INITIATIVE_AUTO,
 			URL:        update.URL,
@@ -166,7 +159,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		return nil, fmt.Errorf("Unable to generate patch: %q", err)
 	}
 
-	// Generate result.
+	// Generate result with the patch URL.
 	r := &Result{
 		Initiative: INITIATIVE_AUTO,
 		URL:        update.URL,

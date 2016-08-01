@@ -10,7 +10,11 @@ const (
 )
 
 func TestDownloadAsset(t *testing.T) {
-	if _, err := downloadAsset(testAssetURL); err != nil {
+	s, err := downloadAsset(testAssetURL)
+	if err != nil {
 		t.Fatal(fmt.Errorf("Failed to download asset: %q", err))
+	}
+	if s != "assets/update_darwin_amd64.6f3d15772b490fedce235ae74484a8eaa87fe329eda791c824af714398eb71d3" {
+		t.Fatal("Unexpected signature.")
 	}
 }

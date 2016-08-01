@@ -79,7 +79,7 @@ func bspatch(oldfile string, newfile string, patchfile string) (err error) {
 	}
 
 	if !fileExists(patchfile) {
-		return fmt.Errorf("File %s does not exist.", oldfile)
+		return fmt.Errorf("File %s does not exist.", patchfile)
 	}
 
 	cmd := exec.Command(
@@ -102,7 +102,7 @@ func bsdiff(oldfile string, newfile string) (patchfile string, err error) {
 	}
 
 	if !fileExists(newfile) {
-		return "", fmt.Errorf("File %s does not exist.", oldfile)
+		return "", fmt.Errorf("File %s does not exist.", newfile)
 	}
 
 	oldfileHash := fileHash(oldfile)
