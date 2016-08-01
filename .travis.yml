@@ -1,0 +1,9 @@
+sudo: false
+
+language: go
+
+install:
+  - go get -t -v -d ./...
+
+script:
+  - PRIVATE_KEY=$PWD/_resources/example-keys/private.key go test -v ./...
