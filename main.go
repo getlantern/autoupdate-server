@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/getlantern/autoupdate-server/server"
@@ -96,8 +99,16 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		nonce, _ := strconv.ParseInt(r.Header.Get("X-Message-Nonce"), 10, 64) // Can be zero for old clients.
+		messageAuth, err := server.Sign(append(content, []byte(fmt.Sprintf("%d", nonce))...))
+		if err != nil {
+			u.closeWithStatus(w, http.StatusInternalServerError)
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Message-Auth", hex.EncodeToString(messageAuth))
 		if _, err := w.Write(content); err != nil {
 			log.Debugf("Unable to write response: %v", err)
 		}
