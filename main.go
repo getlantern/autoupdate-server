@@ -1,13 +1,8 @@
 package main
 
 import (
-	"encoding/hex"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/getlantern/autoupdate-server/server"
@@ -28,9 +23,6 @@ var (
 	releaseManager *server.ReleaseManager
 )
 
-type updateHandler struct {
-}
-
 // updateAssets checks for new assets released on the github releases page.
 func updateAssets() error {
 	log.Debug("Updating assets...")
@@ -49,73 +41,6 @@ func backgroundUpdate() {
 			log.Debugf("updateAssets: %s", err)
 		}
 	}
-}
-
-func (u *updateHandler) closeWithStatus(w http.ResponseWriter, status int) {
-	w.WriteHeader(status)
-	if status == http.StatusNoContent {
-		return
-	}
-	if _, err := w.Write([]byte(http.StatusText(status))); err != nil {
-		log.Debugf("Unable to write status %d: %v", status, err)
-	}
-}
-
-func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var err error
-	var res *server.Result
-
-	if r.Method == "POST" {
-		defer r.Body.Close()
-
-		var params server.Params
-		decoder := json.NewDecoder(r.Body)
-
-		if err = decoder.Decode(&params); err != nil {
-			u.closeWithStatus(w, http.StatusBadRequest)
-			return
-		}
-
-		if res, err = releaseManager.CheckForUpdate(&params); err != nil {
-			if err == server.ErrNoUpdateAvailable {
-				u.closeWithStatus(w, http.StatusNoContent)
-				return
-			}
-			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
-			u.closeWithStatus(w, http.StatusExpectationFailed)
-			return
-		}
-
-		log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
-
-		if res.PatchURL != "" {
-			res.PatchURL = *flagPublicAddr + res.PatchURL
-		}
-
-		var content []byte
-
-		if content, err = json.Marshal(res); err != nil {
-			u.closeWithStatus(w, http.StatusInternalServerError)
-			return
-		}
-
-		nonce, _ := strconv.ParseInt(r.Header.Get("X-Message-Nonce"), 10, 64) // Can be zero for old clients.
-		messageAuth, err := server.Sign(append(content, []byte(fmt.Sprintf("%d", nonce))...))
-		if err != nil {
-			u.closeWithStatus(w, http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("X-Message-Auth", hex.EncodeToString(messageAuth))
-		if _, err := w.Write(content); err != nil {
-			log.Debugf("Unable to write response: %v", err)
-		}
-		return
-	}
-	u.closeWithStatus(w, http.StatusNotFound)
-	return
 }
 
 func main() {
@@ -142,19 +67,14 @@ func main() {
 	// Setting a goroutine for pulling updates periodically
 	go backgroundUpdate()
 
-	mux := http.NewServeMux()
-
-	mux.Handle("/update", new(updateHandler))
-	mux.Handle("/patches/", http.StripPrefix("/patches/", http.FileServer(http.Dir(localPatchesDirectory))))
-
-	srv := http.Server{
-		Addr:    *flagLocalAddr,
-		Handler: mux,
+	updateServer := &server.UpdateServer{
+		ReleaseManager:   releaseManager,
+		PublicAddr:       *flagPublicAddr,
+		LocalAddr:        *flagLocalAddr,
+		PatchesDirectory: localPatchesDirectory,
 	}
 
-	log.Debugf("Starting up HTTP server at %s.", *flagLocalAddr)
-
-	if err := srv.ListenAndServe(); err != nil {
+	if err := updateServer.ListenAndServe(); err != nil {
 		log.Fatalf("ListenAndServe: ", err)
 	}
 }

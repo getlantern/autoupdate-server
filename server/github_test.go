@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
-	"github.com/blang/semver"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/blang/semver"
 )
 
 var testClient *ReleaseManager
@@ -358,5 +359,4 @@ func TestDownloadManotoBetaAndUpgradeIt(t *testing.T) {
 			}
 		}
 	}
-
 }

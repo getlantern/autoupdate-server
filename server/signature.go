@@ -84,7 +84,7 @@ func privateKey() (*rsa.PrivateKey, error) {
 }
 
 // Sign creates a signatures for a byte array.
-func Sign(data []byte) ([]byte, error) {
+func Sign(hashedMessage []byte) ([]byte, error) {
 	pk, err := privateKey()
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func Sign(data []byte) ([]byte, error) {
 
 	// Checking message signature.
 	var signature []byte
-	if signature, err = rsa.SignPKCS1v15(rand.Reader, pk, crypto.SHA256, data); err != nil {
+	if signature, err = rsa.SignPKCS1v15(rand.Reader, pk, crypto.SHA256, hashedMessage); err != nil {
 		return nil, err
 	}
 

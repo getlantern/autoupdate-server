@@ -1,7 +1,12 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
 
 	"github.com/blang/semver"
 	"github.com/getlantern/golog"
@@ -171,4 +176,99 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	}
 
 	return r, nil
+}
+
+type UpdateServer struct {
+	ReleaseManager *ReleaseManager
+
+	PublicAddr string
+	LocalAddr  string
+
+	PatchesDirectory string
+}
+
+func (u *UpdateServer) closeWithStatus(w http.ResponseWriter, status int) {
+	w.WriteHeader(status)
+	if status == http.StatusNoContent {
+		return
+	}
+	if _, err := w.Write([]byte(http.StatusText(status))); err != nil {
+		log.Debugf("Unable to write status %d: %v", status, err)
+	}
+}
+
+func (u *UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var res *Result
+
+	if r.Method == "POST" {
+		defer r.Body.Close()
+
+		var params Params
+		decoder := json.NewDecoder(r.Body)
+
+		if err = decoder.Decode(&params); err != nil {
+			u.closeWithStatus(w, http.StatusBadRequest)
+			return
+		}
+
+		if res, err = u.ReleaseManager.CheckForUpdate(&params); err != nil {
+			if err == ErrNoUpdateAvailable {
+				u.closeWithStatus(w, http.StatusNoContent)
+				return
+			}
+			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
+			u.closeWithStatus(w, http.StatusExpectationFailed)
+			return
+		}
+
+		log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
+
+		if res.PatchURL != "" {
+			res.PatchURL = u.PublicAddr + res.PatchURL
+		}
+
+		var content []byte
+		if content, err = json.Marshal(res); err != nil {
+			log.Debugf("Failed to marshal response: %s", err)
+			u.closeWithStatus(w, http.StatusInternalServerError)
+			return
+		}
+
+		nonce, _ := strconv.ParseInt(r.Header.Get("X-Message-Nonce"), 10, 64) // Can be zero for old clients.
+		hash := sha256.Sum256(append(content, []byte(fmt.Sprintf("%d", nonce))...))
+		messageAuth, err := Sign(hash[:])
+		if err != nil {
+			log.Debugf("Could not sign body: %s", err)
+			u.closeWithStatus(w, http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Message-Signature", hex.EncodeToString(messageAuth))
+
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write(content); err != nil {
+			log.Debugf("Unable to write response: %s", err)
+		}
+		return
+	}
+	u.closeWithStatus(w, http.StatusNotFound)
+	return
+}
+
+func (u *UpdateServer) ListenAndServe() error {
+	mux := http.NewServeMux()
+
+	mux.Handle("/update", u)
+	mux.Handle("/patches/", http.StripPrefix("/patches/", http.FileServer(http.Dir(u.PatchesDirectory))))
+
+	srv := http.Server{
+		Addr:    u.LocalAddr,
+		Handler: mux,
+	}
+
+	log.Debugf("Starting up HTTP server at %s.", u.LocalAddr)
+
+	return srv.ListenAndServe()
 }
