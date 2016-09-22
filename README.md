@@ -102,6 +102,7 @@ running app.
 Use the `mock` build tag to build a binary that mocks Github's API responses.
 
 ```
+glide install
 go build -tags mock github.com/getlantern/autoupdate-server
 ```
 
@@ -122,35 +123,20 @@ using a docker container:
 
 ```
 make mock-server
-```
-
-A mock server will be available at `127.0.0.1:9999`, you can point Lantern to
-that server by editing the `updateserverurl` property on the
-`lantern-x.y.z.yaml` file:
-
-```yaml
-updateserverurl: http://127.0.0.1:9999
+docker logs --tail 20 -f autoupdate-server
 ```
 
 Make sure the Lantern binary uses the public key that matches the private key
-for the mock server by building with the `mockupdate` build tag:
+for the mock server by building it with the `mockupdate` build tag and pointing
+the update server to `http://127.0.0.1:9999`:
 
 ```
-cd $GOPATH/src/github.com/getlantern/lantern
-BUILD_TAGS=mockupdate make linux-amd64
-```
-
-And depending on your needs you can use different `VERSION` values, like:
-
-```
-VERSION=1.0.0 BUILD_TAGS=mockupdate make linux-amd64
-```
-
-You can also change the URL of the update server, like this:
-
-```
-UPDATE_SERVER_URL=http://10.0.0.99 BUILD_TAGS="-mockupdate" VERSION=1.0.0 make darwin
+cd $GOPATH/src/github.com/getlantern/flashlight
+go build -o lantern \
+-tags mockupdate \
+-ldflags="-X github.com/getlantern/flashlight.compileTimePackageVersion=1.0.0 -X github.com/getlantern/flashlight/autoupdate.updateServerURL=http://127.0.0.1:9999" \
+github.com/getlantern/flashlight/main
 ```
 
 The above command will produce a Lantern binary that will accept an update from
-the mock server.
+a mock server running on localhost.
