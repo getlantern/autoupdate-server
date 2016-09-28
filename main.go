@@ -13,8 +13,8 @@ import (
 
 var (
 	flagPrivateKey         = flag.String("k", "", "Path to private key.")
-	flagLocalAddr          = flag.String("l", ":6868", "Local bind address.")
-	flagPublicAddr         = flag.String("p", "http://127.0.0.1:6868/", "Public address.")
+	flagLocalAddr          = flag.String("l", ":9999", "Local bind address.")
+	flagPublicAddr         = flag.String("p", "http://127.0.0.1:9999/", "Public address.")
 	flagGithubOrganization = flag.String("o", "getlantern", "Github organization.")
 	flagGithubProject      = flag.String("n", "lantern", "Github project name.")
 	flagHelp               = flag.Bool("h", false, "Shows help.")
@@ -78,12 +78,12 @@ func (u *updateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				u.closeWithStatus(w, http.StatusNoContent)
 				return
 			}
-			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.AppVersion, params.OS, err)
+			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
 			u.closeWithStatus(w, http.StatusExpectationFailed)
 			return
 		}
 
-		// log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
+		log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
 
 		if res.PatchURL != "" {
 			res.PatchURL = *flagPublicAddr + res.PatchURL
@@ -146,5 +146,4 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("ListenAndServe: ", err)
 	}
-
 }
