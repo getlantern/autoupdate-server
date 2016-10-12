@@ -15,19 +15,11 @@ import (
 	"github.com/getlantern/go-update"
 )
 
-const (
-	privateKeyEnv = `PRIVATE_KEY`
-)
-
 var (
 	privateKeyFile  string
 	rsaPrivateKey   *rsa.PrivateKey
 	rsaPrivateKeyMu sync.Mutex
 )
-
-func init() {
-	privateKeyFile = os.Getenv(privateKeyEnv)
-}
 
 func SetPrivateKey(s string) {
 	privateKeyFile = s
@@ -56,7 +48,7 @@ func privateKey() (*rsa.PrivateKey, error) {
 	}
 
 	if privateKeyFile == "" {
-		log.Fatalf("Missing %s environment variable.", privateKeyEnv)
+		log.Fatalf("Missing private key, forgot to call SetPrivateKey()?")
 	}
 
 	// Loading private key

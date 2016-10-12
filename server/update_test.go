@@ -15,6 +15,10 @@ const (
 	publicAddr = localAddr
 )
 
+func init() {
+	SetPrivateKey("../_resources/example-keys/private.key")
+}
+
 func TestStartServer(t *testing.T) {
 	releaseManager := NewReleaseManager("getlantern", "lantern")
 	if err := releaseManager.UpdateAssetsMap(); err != nil {
