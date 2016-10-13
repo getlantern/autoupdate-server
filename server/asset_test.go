@@ -6,11 +6,16 @@ import (
 )
 
 const (
-	testAssetURL = `https://github.com/getlantern/autoupdate/releases/download/2.0.0-beta3/update_darwin_amd64`
+	testAssetURL  = `https://github.com/getlantern/autoupdate/releases/download/2.0.0-beta3/update_darwin_amd64`
+	testAssetName = `assets/update_darwin_amd64.6f3d15772b490fedce235ae74484a8eaa87fe329eda791c824af714398eb71d3`
 )
 
 func TestDownloadAsset(t *testing.T) {
-	if _, err := downloadAsset(testAssetURL); err != nil {
+	s, err := downloadAsset(testAssetURL)
+	if err != nil {
 		t.Fatal(fmt.Errorf("Failed to download asset: %q", err))
+	}
+	if s != testAssetName {
+		t.Fatal("Unexpected signature.")
 	}
 }

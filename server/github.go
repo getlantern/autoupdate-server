@@ -45,8 +45,8 @@ var OS = struct {
 type Release struct {
 	id      int
 	URL     string
-	Version semver.Version
-	Assets  []Asset
+	Version semver.Version // Release version.
+	Assets  []Asset        // The list of assets on this release.
 }
 
 type releasesByID []Release
@@ -55,11 +55,11 @@ type releasesByID []Release
 type Asset struct {
 	id        int
 	v         semver.Version
-	Name      string
-	URL       string
+	Name      string // Name of the release.
+	URL       string // URL of the patch.
 	LocalFile string
-	Checksum  string
-	Signature string
+	Checksum  string // SHA256 hash of the file.
+	Signature string // RSASSA-PKCS1-V1_5-SIGN signature, this is the SHA256 hash against the private key.
 	AssetInfo
 }
 

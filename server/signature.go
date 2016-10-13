@@ -10,24 +10,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"github.com/getlantern/go-update"
 )
 
-const (
-	privateKeyEnv = `PRIVATE_KEY`
-)
-
 var (
-	privateKeyFile string
+	privateKeyFile  string
+	rsaPrivateKey   *rsa.PrivateKey
+	rsaPrivateKeyMu sync.Mutex
 )
-
-func init() {
-	privateKeyFile = os.Getenv(privateKeyEnv)
-}
 
 func SetPrivateKey(s string) {
 	privateKeyFile = s
+	if _, err := privateKey(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func checksumForFile(file string) (checksumHex string, err error) {
@@ -39,21 +37,18 @@ func checksumForFile(file string) (checksumHex string, err error) {
 	return checksumHex, nil
 }
 
-func signatureForFile(file string) (signatureHex string, err error) {
+func privateKey() (*rsa.PrivateKey, error) {
+	var err error
+
+	rsaPrivateKeyMu.Lock()
+	defer rsaPrivateKeyMu.Unlock()
+
+	if rsaPrivateKey != nil {
+		return rsaPrivateKey, nil
+	}
 
 	if privateKeyFile == "" {
-		log.Fatalf("Missing %s environment variable.", privateKeyEnv)
-	}
-
-	var checksum string
-
-	if checksum, err = checksumForFile(file); err != nil {
-		return "", err
-	}
-
-	var checksumHex []byte
-	if checksumHex, err = hex.DecodeString(checksum); err != nil {
-		return "", err
+		log.Fatalf("Missing private key, forgot to call SetPrivateKey()?")
 	}
 
 	// Loading private key
@@ -61,29 +56,56 @@ func signatureForFile(file string) (signatureHex string, err error) {
 	var fpk *os.File
 
 	if fpk, err = os.Open(privateKeyFile); err != nil {
-		return "", fmt.Errorf("Could not open private key: %q", err)
+		return nil, fmt.Errorf("Could not open private key: %q", err)
 	}
 	defer fpk.Close()
 
 	if pb, err = ioutil.ReadAll(fpk); err != nil {
-		return "", fmt.Errorf("Could not read private key: %q", err)
+		return nil, fmt.Errorf("Could not read private key: %q", err)
 	}
 
 	// Decoding PEM key.
 	pemBlock, _ := pem.Decode(pb)
 
-	var privateKey *rsa.PrivateKey
-	if privateKey, err = x509.ParsePKCS1PrivateKey(pemBlock.Bytes); err != nil {
-		return "", fmt.Errorf("Could not parse private key: %q", err)
+	rsaPrivateKey, err = x509.ParsePKCS1PrivateKey(pemBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return rsaPrivateKey, nil
+}
+
+// Sign creates a signatures for a byte array.
+func Sign(hashedMessage []byte) ([]byte, error) {
+	pk, err := privateKey()
+	if err != nil {
+		return nil, err
 	}
 
 	// Checking message signature.
 	var signature []byte
-	if signature, err = rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, checksumHex); err != nil {
-		return "", fmt.Errorf("Could not create signature for file %s: %q", file, err)
+	if signature, err = rsa.SignPKCS1v15(rand.Reader, pk, crypto.SHA256, hashedMessage); err != nil {
+		return nil, err
 	}
 
-	signatureHex = hex.EncodeToString(signature)
+	return signature, nil
+}
 
-	return signatureHex, nil
+func signatureForFile(file string) (string, error) {
+	checksum, err := checksumForFile(file)
+	if err != nil {
+		return "", err
+	}
+
+	checksumHex, err := hex.DecodeString(checksum)
+	if err != nil {
+		return "", err
+	}
+
+	signature, err := Sign(checksumHex)
+	if err != nil {
+		return "", fmt.Errorf("Could not sign file %q: %q", file, err)
+	}
+
+	return hex.EncodeToString(signature), nil
 }

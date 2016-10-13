@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
-	"github.com/blang/semver"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/blang/semver"
 )
 
 var testClient *ReleaseManager
@@ -93,7 +94,6 @@ func TestUpdateAssetsMap(t *testing.T) {
 }
 
 func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
-
 	if len(testClient.updateAssetsMap) == 0 {
 		t.Fatal("Assets map is empty.")
 	}
@@ -225,8 +225,6 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				Checksum:   asset.Checksum,
 			}
 
-			// fmt.Printf("params: %s", params)
-
 			r, err := testClient.CheckForUpdate(&params)
 			if err != nil {
 				if err == ErrNoUpdateAvailable {
@@ -240,8 +238,8 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				}
 			}
 
-			if r.PatchType != PATCHTYPE_BSDIFF {
-				t.Fatal("Expecting no patch.")
+			if os != "android" && r.PatchType != PATCHTYPE_BSDIFF {
+				t.Fatal("Expecting a patch.")
 			}
 
 			if r.Version != testClient.latestAssetsMap[os][arch].v.String() {
@@ -361,5 +359,4 @@ func TestDownloadManotoBetaAndUpgradeIt(t *testing.T) {
 			}
 		}
 	}
-
 }
