@@ -13,5 +13,6 @@ else
     -l 0.0.0.0:9999 \
     -p https://update.getlantern.org/ \
     -o getlantern \
+    -r 0.05 \
     -n lantern
 fi
