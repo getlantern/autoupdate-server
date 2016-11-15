@@ -5,12 +5,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/blang/semver"
 	"github.com/getlantern/golog"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 var log = golog.LoggerFor("autoupdate-server")
 
@@ -181,8 +187,9 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 type UpdateServer struct {
 	ReleaseManager *ReleaseManager
 
-	PublicAddr string
-	LocalAddr  string
+	PublicAddr  string
+	LocalAddr   string
+	RolloutRate float64
 
 	PatchesDirectory string
 }
@@ -222,6 +229,12 @@ func (u *UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
 		u.closeWithStatus(w, http.StatusExpectationFailed)
+		return
+	}
+
+	if u.RolloutRate > 0 && rand.Float64() > u.RolloutRate {
+		log.Debugf("Update skipped. Limited by current roll-out rate (%0.2f%%).", u.RolloutRate*100.0)
+		u.closeWithStatus(w, http.StatusNoContent)
 		return
 	}
 
