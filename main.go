@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	flagRolloutRate        = flag.String("r", "1.0", "Rollout rate [0.0, 1.0]")
+	flagRolloutRate        = flag.Float64("r", 1.0, "Rollout rate [0.0, 1.0]")
 	flagPrivateKey         = flag.String("k", "", "Path to private key.")
 	flagLocalAddr          = flag.String("l", ":9999", "Local bind address.")
 	flagPublicAddr         = flag.String("p", "http://127.0.0.1:9999/", "Public address.")
