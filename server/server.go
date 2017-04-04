@@ -238,6 +238,19 @@ func (u *UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if params.OS == "darwin" {
+		v360, err := semver.Make("3.6.0")
+		if err != nil {
+			log.Debugf("semver.Make: %v", err)
+			u.closeWithStatus(w, http.StatusNoContent)
+		}
+		currentVersion, err := semver.Parse(params.AppVersion)
+		if currentVersion.LT(v360) {
+			log.Debugf("Got version %q on OSX, but we cannot update it. Skipped", params.AppVersion)
+			u.closeWithStatus(w, http.StatusNoContent)
+		}
+	}
+
 	log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
 
 	if res.PatchURL != "" {
