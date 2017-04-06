@@ -14,6 +14,9 @@ import (
 	"github.com/getlantern/golog"
 )
 
+// Version 3.6.0
+var v360 = semver.MustParse("3.6.0")
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -239,12 +242,11 @@ func (u *UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if params.OS == "darwin" {
-		v360, err := semver.Make("3.6.0")
+		currentVersion, err := semver.Parse(params.AppVersion)
 		if err != nil {
-			log.Debugf("semver.Make: %v", err)
+			log.Debugf("Failed to parse version (%q): %v", params.AppVersion, err)
 			u.closeWithStatus(w, http.StatusNoContent)
 		}
-		currentVersion, err := semver.Parse(params.AppVersion)
 		if currentVersion.LT(v360) {
 			log.Debugf("Got version %q on OSX, but we cannot update it. Skipped", params.AppVersion)
 			u.closeWithStatus(w, http.StatusNoContent)
