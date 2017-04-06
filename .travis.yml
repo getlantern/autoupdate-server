@@ -6,6 +6,7 @@ before_install:
   - sudo apt-get install -y bsdiff
 
 install:
+  - curl https://glide.sh/get | sh
   - make vendor
 
 script:
