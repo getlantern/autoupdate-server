@@ -6,7 +6,7 @@ before_install:
   - sudo apt-get install -y bsdiff
 
 install:
-  - go get -t -v -d ./...
+  - make vendor
 
 script:
   - go test -v ./...
