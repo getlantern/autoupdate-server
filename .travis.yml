@@ -6,7 +6,11 @@ before_install:
   - sudo apt-get install -y bsdiff
 
 install:
-  - go get -t -v -d ./...
+  - mkdir -p $GOPATH/bin
+  - mkdir -p $GOPATH/pkg
+  - mkdir -p $GOPATH/src
+  - curl https://glide.sh/get | sh
+  - make vendor
 
 script:
-  - go test -v ./...
+  - go test -v $(glide novendor)
