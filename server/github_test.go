@@ -8,14 +8,13 @@ import (
 	"github.com/blang/semver"
 )
 
-var testClient *ReleaseManager
-
 var (
 	ghAccountOwner      = "getlantern"
 	ghAccountRepository = "lantern"
 )
 
 func init() {
+	os.Setenv(envSkipDownload, "true")
 	if v := os.Getenv("GH_ACCOUNT_OWNER"); v != "" {
 		ghAccountOwner = v
 	}
@@ -61,23 +60,23 @@ func TestSplitUpdateAsset(t *testing.T) {
 	}
 }
 
-func TestNewClient(t *testing.T) {
-	testClient = NewReleaseManager(ghAccountOwner, ghAccountRepository)
-	if testClient == nil {
-		t.Fatal("Failed to create new client.")
-	}
-}
+var testClient *ReleaseManager
 
-func TestListReleases(t *testing.T) {
-	if _, err := testClient.getReleases(); err != nil {
-		t.Fatalf("Failed to pull releases: %v", err)
+func getOrCreateTestClient(t *testing.T) *ReleaseManager {
+	if testClient == nil {
+		testClient = NewReleaseManager(ghAccountOwner, ghAccountRepository)
+		if testClient == nil {
+			t.Fatal("Failed to create new client.")
+		}
+		if err := testClient.UpdateAssetsMap(); err != nil {
+			t.Fatalf("Failed to update assets map: %v", err)
+		}
 	}
+	return testClient
 }
 
 func TestUpdateAssetsMap(t *testing.T) {
-	if err := testClient.UpdateAssetsMap(); err != nil {
-		t.Fatalf("Failed to update assets map: %v", err)
-	}
+	testClient := getOrCreateTestClient(t)
 	if testClient.updateAssetsMap == nil {
 		t.Fatal("Assets map should not be nil at this point.")
 	}
@@ -93,6 +92,7 @@ func TestUpdateAssetsMap(t *testing.T) {
 }
 
 func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
+	testClient := getOrCreateTestClient(t)
 	if len(testClient.updateAssetsMap) == 0 {
 		t.Fatal("Assets map is empty.")
 	}
@@ -283,6 +283,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 }
 
 func TestDownloadManotoBetaAndUpgradeIt(t *testing.T) {
+	testClient := getOrCreateTestClient(t)
 
 	if r := semver.MustParse("2.0.0+manoto").Compare(semver.MustParse("2.0.0+stable")); r != 0 {
 		t.Fatalf("Expecting 2.0.0+manoto to be equal to 2.0.0+stable, got: %d", r)
@@ -356,6 +357,35 @@ func TestDownloadManotoBetaAndUpgradeIt(t *testing.T) {
 			if r.Version != manotoBeta8Upgrade {
 				t.Fatalf("Expecting %s.", manotoBeta8Upgrade)
 			}
+		}
+	}
+}
+
+func TestCheckOsVersion(t *testing.T) {
+	testClient := getOrCreateTestClient(t)
+	// change to a version present on GitHub
+	lastVersionForWindowsXP = "5.3.4"
+	lastVersionForOSXYosemite = "5.3.1"
+	for _, fields := range [][]string{
+		[]string{"5.1.0", "windows", "386", "3.7.0", lastVersionForWindowsXP},
+		[]string{"5.1.0", "windows", "386", "5.7.0", ""},
+		[]string{"14.4.1", "darwin", "amd64", "3.7.0", lastVersionForOSXYosemite},
+		[]string{"14.4.1", "darwin", "amd64", "5.7.0", ""},
+	} {
+		params := Params{
+			OSVersion:  fields[0],
+			OS:         fields[1],
+			Arch:       fields[2],
+			AppVersion: fields[3],
+			Checksum:   "fake",
+		}
+		r, err := testClient.CheckForUpdate(&params)
+		if err == nil {
+			if r.Version != fields[4] {
+				t.Fatalf("Expecting %s", fields[4])
+			}
+		} else if err != ErrNoUpdateAvailable {
+			t.Fatalf("Expect %v", ErrNoUpdateAvailable)
 		}
 	}
 }

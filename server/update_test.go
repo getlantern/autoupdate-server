@@ -49,7 +49,7 @@ func TestReachServer(t *testing.T) {
 	}
 
 	param := check.Params{
-		AppVersion: "2.2.2",
+		AppVersion: "3.7.1",
 	}
 
 	up = update.New().ApplyPatch(update.PATCHTYPE_BSDIFF)

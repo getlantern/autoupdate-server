@@ -126,10 +126,6 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("Bad app version string %v: %v", p.AppVersion, err)
 	}
-	osVersion, err := semver.Parse(p.OSVersion)
-	if err != nil {
-		return nil, fmt.Errorf("Bad os version string %v: %v", p.OSVersion, err)
-	}
 
 	var update *Asset
 	var specificVersionToUpgrade string
@@ -141,16 +137,18 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	if appVersion.String() == manotoBeta8 {
 		// Always return 2.0.0+manoto
 		specificVersionToUpgrade = manotoBeta8Upgrade
-	} else if p.OS == "windows" && osVersion.LT(semver.MustParse("6.0.0")) {
-		// Windows XP/2003 or below
-		specificVersionToUpgrade = lastVersionForWindowsXP
-	} else if p.OS == "darwin" && osVersion.LT(semver.MustParse("15.0.0")) {
-		// 0SX 10.10 Yosemite or below
-		specificVersionToUpgrade = lastVersionForOSXYosemite
+	} else if osVersion, err := semver.Parse(p.OSVersion); err == nil {
+		if p.OS == "windows" && osVersion.LT(semver.MustParse("6.0.0")) {
+			// Windows XP/2003 or below
+			specificVersionToUpgrade = lastVersionForWindowsXP
+		} else if p.OS == "darwin" && osVersion.LT(semver.MustParse("15.0.0")) {
+			// 0SX 10.10 Yosemite or below
+			specificVersionToUpgrade = lastVersionForOSXYosemite
+		}
 	}
 	if specificVersionToUpgrade != "" {
 		if update, err = g.lookupAssetWithVersion(p.OS, p.Arch, specificVersionToUpgrade); err != nil {
-			return nil, fmt.Errorf("No upgrade for %s/%s: %v", p.OS, p.Arch, err)
+			return nil, fmt.Errorf("No upgrade for version %s %s/%s: %v", p.AppVersion, p.OS, p.Arch, err)
 		}
 	}
 
@@ -264,10 +262,12 @@ func (u *UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Debugf("Failed to parse version (%q): %v", params.AppVersion, err)
 			u.closeWithStatus(w, http.StatusNoContent)
+			return
 		}
 		if currentVersion.LT(v360) {
 			log.Debugf("Got version %q on OSX, but we cannot update it. Skipped", params.AppVersion)
 			u.closeWithStatus(w, http.StatusNoContent)
+			return
 		}
 	}
 
@@ -296,7 +296,6 @@ func (u *UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Message-Signature", hex.EncodeToString(messageAuth))
 
-	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(content); err != nil {
 		log.Debugf("Unable to write response: %s", err)
 	}
