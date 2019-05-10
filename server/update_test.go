@@ -22,7 +22,7 @@ func init() {
 func TestStartServer(t *testing.T) {
 	releaseManager := NewReleaseManager("getlantern", "lantern")
 	if err := releaseManager.UpdateAssetsMap(); err != nil {
-		t.Fatalf("UpdateAssetsMap: ", err)
+		t.Fatalf("UpdateAssetsMap: %v", err)
 	}
 
 	updateServer := &UpdateServer{
@@ -33,7 +33,7 @@ func TestStartServer(t *testing.T) {
 
 	go func(t *testing.T) {
 		if err := updateServer.ListenAndServe(); err != nil {
-			t.Fatalf("ListenAndServe: ", err)
+			t.Fatalf("ListenAndServe: %v", err)
 		}
 	}(t)
 
@@ -45,7 +45,7 @@ func TestReachServer(t *testing.T) {
 
 	publicKey, err := ioutil.ReadFile("../_resources/example-keys/public.pub")
 	if err != nil {
-		t.Fatal("Failed to open public key: ", err)
+		t.Fatalf("Failed to open public key: %v", err)
 	}
 
 	param := check.Params{
@@ -60,7 +60,7 @@ func TestReachServer(t *testing.T) {
 
 	res, err := param.CheckForUpdate(fmt.Sprintf("http://%s/update", localAddr), up)
 	if err != nil {
-		t.Fatal("CheckForUpdate", err)
+		t.Fatalf("CheckForUpdate: %v", err)
 	}
 
 	if res.Url == "" {
