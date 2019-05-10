@@ -16,6 +16,8 @@ import (
 
 // Version 3.6.0
 var v360 = semver.MustParse("3.6.0")
+var lastVersionForWindowsXP = "5.3.9"
+var lastVersionForOSXYosemite = "5.3.9"
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -50,6 +52,8 @@ type Params struct {
 	OS string `json:"-"`
 	// hardware architecture of target platform
 	Arch string `json:"-"`
+	// Semantic version of the OS
+	OSVersion string `json:"os_version"`
 	// checksum of the binary to replace (used for returning diff patches)
 	Checksum string `json:"checksum"`
 	// tags for custom update channels
@@ -120,10 +124,15 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 
 	appVersion, err := semver.Parse(p.AppVersion)
 	if err != nil {
-		return nil, fmt.Errorf("Bad version string: %v", err)
+		return nil, fmt.Errorf("Bad app version string %v: %v", p.AppVersion, err)
+	}
+	osVersion, err := semver.Parse(p.OSVersion)
+	if err != nil {
+		return nil, fmt.Errorf("Bad os version string %v: %v", p.OSVersion, err)
 	}
 
 	var update *Asset
+	var specificVersionToUpgrade string
 
 	// This is a hack that allows Lantern 2.0.0beta8+manoto clients to upgrade to
 	// Lantern 2.0.0+manoto
@@ -131,8 +140,17 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	// See https://github.com/getlantern/lantern/issues/2868
 	if appVersion.String() == manotoBeta8 {
 		// Always return 2.0.0+manoto
-		if update, err = g.lookupAssetWithVersion(p.OS, p.Arch, manotoBeta8Upgrade); err != nil {
-			return nil, fmt.Errorf("No upgrade for %s/%s", p.OS, p.Arch)
+		specificVersionToUpgrade = manotoBeta8Upgrade
+	} else if p.OS == "windows" && osVersion.LT(semver.MustParse("6.0.0")) {
+		// Windows XP/2003 or below
+		specificVersionToUpgrade = lastVersionForWindowsXP
+	} else if p.OS == "darwin" && osVersion.LT(semver.MustParse("15.0.0")) {
+		// 0SX 10.10 Yosemite or below
+		specificVersionToUpgrade = lastVersionForOSXYosemite
+	}
+	if specificVersionToUpgrade != "" {
+		if update, err = g.lookupAssetWithVersion(p.OS, p.Arch, specificVersionToUpgrade); err != nil {
+			return nil, fmt.Errorf("No upgrade for %s/%s: %v", p.OS, p.Arch, err)
 		}
 	}
 
