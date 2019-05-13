@@ -15,6 +15,8 @@ import (
 
 const (
 	assetsDirectory = "assets/"
+	// Downloading all assets from GitHub can be very slow and easily exceed
+	// the 10 min time limit imposed by CI
 	envSkipDownload = "SKIP_DOWNLOAD_FOR_TEST"
 )
 
@@ -41,7 +43,9 @@ func downloadAsset(uri string) (localfile string, err error) {
 
 	if !fileExists(localfile) {
 		var body io.Reader = bytes.NewBufferString("some content for test")
-		if skip, _ := strconv.ParseBool(os.Getenv(envSkipDownload)); !skip {
+		if skip, _ := strconv.ParseBool(os.Getenv(envSkipDownload)); skip {
+			log.Debugf("Skip downloading %v in tests", uri)
+		} else {
 			var res *http.Response
 
 			c := http.Client{Timeout: time.Second * 30}
