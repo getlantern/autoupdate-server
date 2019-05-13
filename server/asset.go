@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"path"
@@ -42,7 +43,7 @@ func downloadAsset(uri string) (localfile string, err error) {
 	localfile = assetsDirectory + fmt.Sprintf("%s.%x", basename, sha256.Sum256([]byte(uri)))
 
 	if !fileExists(localfile) {
-		var body io.Reader = bytes.NewBufferString("some content for test")
+		var body io.Reader = bytes.NewBufferString(strconv.FormatInt(rand.Int63(), 10))
 		if skip, _ := strconv.ParseBool(os.Getenv(envSkipDownload)); skip {
 			log.Debugf("Skip downloading %v in tests", uri)
 		} else {
