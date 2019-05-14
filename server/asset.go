@@ -1,18 +1,24 @@
 package server
 
 import (
+	"bytes"
 	"compress/bzip2"
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"time"
 )
 
 const (
 	assetsDirectory = "assets/"
+	// Downloading all assets from GitHub can be very slow and easily exceed
+	// the 10 min time limit imposed by CI
+	envSkipDownload = "SKIP_DOWNLOAD_FOR_TEST"
 )
 
 func init() {
@@ -37,17 +43,27 @@ func downloadAsset(uri string) (localfile string, err error) {
 	localfile = assetsDirectory + fmt.Sprintf("%s.%x", basename, sha256.Sum256([]byte(uri)))
 
 	if !fileExists(localfile) {
-		var body io.Reader
-		var res *http.Response
+		var body io.Reader = bytes.NewBufferString(strconv.FormatInt(rand.Int63(), 10))
+		if skip, _ := strconv.ParseBool(os.Getenv(envSkipDownload)); skip {
+			log.Debugf("Skip downloading %v in tests", uri)
+		} else {
+			var res *http.Response
 
-		c := http.Client{Timeout: time.Second * 30}
-		if res, err = c.Get(uri); err != nil {
-			return "", err
-		}
-		defer res.Body.Close()
+			c := http.Client{Timeout: time.Second * 30}
+			if res, err = c.Get(uri); err != nil {
+				return "", err
+			}
+			defer res.Body.Close()
 
-		if res.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("Expecting 200 OK, got: %s", res.Status)
+			if res.StatusCode != http.StatusOK {
+				return "", fmt.Errorf("Expecting 200 OK, got: %s", res.Status)
+			}
+
+			if fileExt == ".bz2" {
+				body = bzip2.NewReader(res.Body)
+			} else {
+				body = res.Body
+			}
 		}
 
 		var fp *os.File
@@ -56,12 +72,6 @@ func downloadAsset(uri string) (localfile string, err error) {
 			return "", err
 		}
 		defer fp.Close()
-
-		if fileExt == ".bz2" {
-			body = bzip2.NewReader(res.Body)
-		} else {
-			body = res.Body
-		}
 
 		if _, err = io.Copy(fp, body); err != nil {
 			return "", err

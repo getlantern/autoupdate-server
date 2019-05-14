@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -9,14 +8,13 @@ import (
 	"github.com/blang/semver"
 )
 
-var testClient *ReleaseManager
-
 var (
 	ghAccountOwner      = "getlantern"
 	ghAccountRepository = "lantern"
 )
 
 func init() {
+	os.Setenv(envSkipDownload, "true")
 	if v := os.Getenv("GH_ACCOUNT_OWNER"); v != "" {
 		ghAccountOwner = v
 	}
@@ -30,55 +28,55 @@ func TestSplitUpdateAsset(t *testing.T) {
 	var info *AssetInfo
 
 	if info, err = getAssetInfo("update_darwin_386.dmg"); err != nil {
-		t.Fatal(fmt.Errorf("Failed to get asset info: %q", err))
+		t.Fatalf("Failed to get asset info: %v", err)
 	}
 	if info.OS != OS.Darwin || info.Arch != Arch.X86 {
 		t.Fatal("Failed to identify update asset.")
 	}
 
 	if info, err = getAssetInfo("update_darwin_amd64.v1"); err != nil {
-		t.Fatal(fmt.Errorf("Failed to get asset info: %q", err))
+		t.Fatalf("Failed to get asset info: %v", err)
 	}
 	if info.OS != OS.Darwin || info.Arch != Arch.X64 {
 		t.Fatal("Failed to identify update asset.")
 	}
 
 	if info, err = getAssetInfo("update_linux_arm"); err != nil {
-		t.Fatal(fmt.Errorf("Failed to get asset info: %q", err))
+		t.Fatalf("Failed to get asset info: %v", err)
 	}
 	if info.OS != OS.Linux || info.Arch != Arch.ARM {
 		t.Fatal("Failed to identify update asset.")
 	}
 
 	if info, err = getAssetInfo("update_windows_386"); err != nil {
-		t.Fatal(fmt.Errorf("Failed to get asset info: %q", err))
+		t.Fatalf("Failed to get asset info: %v", err)
 	}
 	if info.OS != OS.Windows || info.Arch != Arch.X86 {
 		t.Fatal("Failed to identify update asset.")
 	}
 
 	if _, err = getAssetInfo("update_osx_386"); err == nil {
-		t.Fatalf("Should have ignored the release, \"osx\" is not a valid OS value.")
+		t.Fatal("Should have ignored the release, \"osx\" is not a valid OS value.")
 	}
 }
 
-func TestNewClient(t *testing.T) {
-	testClient = NewReleaseManager(ghAccountOwner, ghAccountRepository)
+var testClient *ReleaseManager
+
+func getOrCreateTestClient(t *testing.T) *ReleaseManager {
 	if testClient == nil {
-		t.Fatal("Failed to create new client.")
+		testClient = NewReleaseManager(ghAccountOwner, ghAccountRepository)
+		if testClient == nil {
+			t.Fatal("Failed to create new client.")
+		}
+		if err := testClient.UpdateAssetsMap(); err != nil {
+			t.Fatalf("Failed to update assets map: %v", err)
+		}
 	}
-}
-
-func TestListReleases(t *testing.T) {
-	if _, err := testClient.getReleases(); err != nil {
-		t.Fatal(fmt.Errorf("Failed to pull releases: %q", err))
-	}
+	return testClient
 }
 
 func TestUpdateAssetsMap(t *testing.T) {
-	if err := testClient.UpdateAssetsMap(); err != nil {
-		t.Fatal(fmt.Errorf("Failed to update assets map: %q", err))
-	}
+	testClient := getOrCreateTestClient(t)
 	if testClient.updateAssetsMap == nil {
 		t.Fatal("Assets map should not be nil at this point.")
 	}
@@ -94,6 +92,7 @@ func TestUpdateAssetsMap(t *testing.T) {
 }
 
 func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
+	testClient := getOrCreateTestClient(t)
 	if len(testClient.updateAssetsMap) == 0 {
 		t.Fatal("Assets map is empty.")
 	}
@@ -150,7 +149,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 
 			// Generate a binary diff of the two assets.
 			if p, err = generatePatch(asset.URL, newAsset.URL); err != nil {
-				t.Fatal(fmt.Errorf("Unable to generate patch: %q", err))
+				t.Fatalf("Unable to generate patch: %v", err)
 			}
 
 			// Apply patch.
@@ -167,7 +166,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 			patchedFile := "_tests/" + path.Base(asset.URL)
 
 			if err = bspatch(oldAssetFile, patchedFile, p.File); err != nil {
-				t.Fatal(fmt.Sprintf("Failed to apply binary diff: %q", err))
+				t.Fatalf("Failed to apply binary diff: %v", err)
 			}
 
 			// Compare the two versions.
@@ -181,7 +180,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 
 			var cs string
 			if cs, err = checksumForFile(patchedFile); err != nil {
-				t.Fatal("Could not get checksum for %s: %q", patchedFile, err)
+				t.Fatalf("Could not get checksum for %s: %v", patchedFile, err)
 			}
 
 			if cs == asset.Checksum {
@@ -194,7 +193,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 
 			var ss string
 			if ss, err = signatureForFile(patchedFile); err != nil {
-				t.Fatal("Could not get signature for %s: %q", patchedFile, err)
+				t.Fatalf("Could not get signature for %s: %v", patchedFile, err)
 			}
 
 			if ss == asset.Signature {
@@ -243,7 +242,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 			}
 
 			if r.Version != testClient.latestAssetsMap[os][arch].v.String() {
-				t.Fatal("Expecting %v, got %v.", testClient.latestAssetsMap[os][arch].v, r.Version)
+				t.Fatalf("Expecting %v, got %v.", testClient.latestAssetsMap[os][arch].v, r.Version)
 			}
 		}
 	}
@@ -277,13 +276,14 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 			}
 
 			if r.Version != testClient.latestAssetsMap[os][arch].v.String() {
-				t.Fatal("Expecting %v, got %v.", testClient.latestAssetsMap[os][arch].v, r.Version)
+				t.Fatalf("Expecting %v, got %v.", testClient.latestAssetsMap[os][arch].v, r.Version)
 			}
 		}
 	}
 }
 
 func TestDownloadManotoBetaAndUpgradeIt(t *testing.T) {
+	testClient := getOrCreateTestClient(t)
 
 	if r := semver.MustParse("2.0.0+manoto").Compare(semver.MustParse("2.0.0+stable")); r != 0 {
 		t.Fatalf("Expecting 2.0.0+manoto to be equal to 2.0.0+stable, got: %d", r)
@@ -355,8 +355,37 @@ func TestDownloadManotoBetaAndUpgradeIt(t *testing.T) {
 			t.Logf("Upgrading %v to %v (%s/%s)", asset.v, r.Version, os, arch)
 
 			if r.Version != manotoBeta8Upgrade {
-				t.Fatal("Expecting %s.", manotoBeta8Upgrade)
+				t.Fatalf("Expecting %s.", manotoBeta8Upgrade)
 			}
+		}
+	}
+}
+
+func TestCheckOsVersion(t *testing.T) {
+	testClient := getOrCreateTestClient(t)
+	// change to a version present on GitHub
+	lastVersionForWindowsXP = "5.3.4"
+	lastVersionForOSXYosemite = "5.3.1"
+	for _, fields := range [][]string{
+		[]string{"5.1.0", "windows", "386", "3.7.0", lastVersionForWindowsXP},
+		[]string{"5.1.0", "windows", "386", "5.7.0", ""},
+		[]string{"14.4.1", "darwin", "amd64", "3.7.0", lastVersionForOSXYosemite},
+		[]string{"14.4.1", "darwin", "amd64", "5.7.0", ""},
+	} {
+		params := Params{
+			OSVersion:  fields[0],
+			OS:         fields[1],
+			Arch:       fields[2],
+			AppVersion: fields[3],
+			Checksum:   "fake",
+		}
+		r, err := testClient.CheckForUpdate(&params)
+		if err == nil {
+			if r.Version != fields[4] {
+				t.Fatalf("Expecting %s", fields[4])
+			}
+		} else if err != ErrNoUpdateAvailable {
+			t.Fatalf("Expect %v", ErrNoUpdateAvailable)
 		}
 	}
 }
