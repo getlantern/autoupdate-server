@@ -35,7 +35,7 @@ docker-run:
 		$(DOCKER_IMAGE)
 
 deploy: clean
-	rsync -av --delete --exclude ".git" --exclude ".*.sw?" . $(DEPLOY_URL):~/deploy && \
+	rsync -av --delete --exclude "server/_tests" --exclude "server/assets" --exclude "server/patches" --exclude ".git" --exclude ".*.sw?" . $(DEPLOY_URL):~/deploy && \
 	ssh $(DEPLOY_URL) 'cd ~/deploy && make docker && PRIVATE_KEY_DIR=~/private WORKDIR=~/tmp make docker-run'
 
 mock-server: vendor docker
