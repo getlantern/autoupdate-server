@@ -6,7 +6,7 @@ compare their running software version against releases posted at
 autoupdate-server will provide a binary diff that the client can use to patch
 itself.
 
-## Features
+## Features
 
 * Uses Github releases.
 * Generates binary diffs.
@@ -35,13 +35,13 @@ openssl rsa -in private.pem -out public.pem -pubout
 The private key must match the public key set in the autoupdate package
 configuration.
 
-## Deploying
+## Deploying
 
 `make production` to deploy the current code to update.getlantern.org.
 
 To change the rollout rate, i.e., what percentage of valid update requests should get fulfilled, edit `bin/entrypoint.sh` with the appropriate `-r` option, commit the change, and `make production` again.
 
-## How to run the autoupdate server
+## How to run the autoupdate server
 
 ```
 ./autoupdate-server -k private.pem
