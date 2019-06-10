@@ -16,8 +16,8 @@ import (
 
 // Version 3.6.0
 var v360 = semver.MustParse("3.6.0")
-var lastVersionForWindowsXP = "5.4.0"
-var lastVersionForOSXYosemite = "5.4.0"
+var lastVersionForWindowsXP = "5.4.1"
+var lastVersionForOSXYosemite = "5.4.1"
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
