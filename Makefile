@@ -8,10 +8,9 @@ DEPLOY_URL ?= deploy@update-stage.getlantern.org
 
 RUN_MODE ?=
 
-.PHONY: vendor
+export GO111MODULE=on
 
-vendor:
-	glide install
+.PHONY: vendor
 
 clean:
 	rm -rf autoupdate-server patches assets workdir
@@ -19,7 +18,7 @@ clean:
 docker:
 	docker build -t $(DOCKER_IMAGE) .
 
-docker-run:
+docker-run: docker
 	mkdir -p $(WORKDIR) && \
 	(docker stop $(DOCKER_NAME) || exit 0) && \
 	(docker rm $(DOCKER_NAME) || exit 0) && \
@@ -28,7 +27,7 @@ docker-run:
 		-p 127.0.0.1:9999:9999 \
 		--privileged \
 		-v $(WORKDIR):/app \
-		-v $(PRIVATE_KEY_DIR):/keys \
+                -v $(PRIVATE_KEY_DIR):/keys \
 		--restart always \
 		--memory-swappiness=0 \
 		--name $(DOCKER_NAME) \
@@ -38,7 +37,7 @@ deploy: clean
 	rsync -av --delete --exclude "server/_tests" --exclude "server/assets" --exclude "server/patches" --exclude ".git" --exclude ".*.sw?" . $(DEPLOY_URL):~/deploy && \
 	ssh $(DEPLOY_URL) 'cd ~/deploy && make docker && PRIVATE_KEY_DIR=~/private WORKDIR=~/tmp make docker-run'
 
-mock-server: vendor docker
+mock-server: docker
 	PRIVATE_KEY_DIR=$(PWD)/_resources/example-keys WORKDIR=/tmp RUN_MODE=mock $(MAKE) docker-run
 
 mock-server-logs:

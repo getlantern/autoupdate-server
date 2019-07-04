@@ -1,40 +1,27 @@
+FROM golang:1.12 as builder
+
+WORKDIR $GOPATH/src/github.com/getlantern/autoupdate-server
+# Copying the mod and sum files, then running 'go mod download' creates a
+# separate layer of cached dependencies.
+COPY go.mod go.sum ./
+RUN GO111MODULE=on go mod download
+COPY . .
+RUN GO111MODULE=on go build -o /bin/autoupdate-server
+RUN GO111MODULE=on go build -o /bin/autoupdate-server-mock -tags mock
+
+
+# Running container
 FROM debian:jessie
 
-RUN apt-get update
-RUN apt-get install -y apt-transport-https
-RUN apt-get install -y ca-certificates
-RUN apt-get install -y bsdiff git curl
+RUN apt-get update && apt-get install -y \
+	ca-certificates
 
-ENV PACKAGE_NAME github.com/getlantern/autoupdate-server
+COPY --from=builder /bin/autoupdate-server /bin/autoupdate-server
+COPY --from=builder /bin/autoupdate-server-mock /bin/autoupdate-server-mock
 
-ENV WORKDIR /app
-RUN mkdir -p $WORKDIR
+COPY bin/entrypoint.sh /bin/entrypoint.sh
 
-ENV GO_VERSION go1.7.3
-
-ENV GOROOT /usr/local/go
-ENV GOPATH /go
-
-RUN mkdir -p $GOPATH/bin $GOPATH/src $GOPATH/pkg
-
-ENV PATH $PATH:$GOROOT/bin:$GOPATH/bin
-
-ENV GO_PACKAGE_URL https://storage.googleapis.com/golang/$GO_VERSION.linux-amd64.tar.gz
-RUN curl -sSL $GO_PACKAGE_URL | tar -xvzf - -C /usr/local
-
-RUN curl https://glide.sh/get | bash
-
-ENV APPSRC_DIR /go/src/$PACKAGE_NAME
-ENV mkdir -p $APPSRC_DIR
-COPY ./ $APPSRC_DIR/
-
-RUN cp $APPSRC_DIR/bin/entrypoint.sh /bin/entrypoint.sh
-
-RUN go build -o /bin/autoupdate-server $PACKAGE_NAME
-RUN go build -tags mock -o /bin/autoupdate-server-mock $PACKAGE_NAME
-
-VOLUME [ "/keys", $APPSRC_DIR, $WORKDIR ]
-
-WORKDIR $WORKDIR
+RUN mkdir /app
+VOLUME [ "/keys", "/app" ]
 
 ENTRYPOINT ["/bin/entrypoint.sh"]
