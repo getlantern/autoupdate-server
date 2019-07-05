@@ -1,12 +1,16 @@
 sudo: true
 
 language: go
-go:
-- 1.12.5
 
 before_install:
-  # bsdiff is required by the tests
   - sudo apt-get install -y bsdiff
 
+install:
+  - mkdir -p $GOPATH/bin
+  - mkdir -p $GOPATH/pkg
+  - mkdir -p $GOPATH/src
+  - curl https://glide.sh/get | sh
+  - make vendor
+
 script:
-  - GO111MODULE=on go test ./...
+  - go test -v $(glide novendor)
