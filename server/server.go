@@ -116,6 +116,11 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		return nil, fmt.Errorf("Arch is required")
 	}
 
+	// One APK to support both ARM and ARM64 on Android
+	if p.OS == OS.Android && p.Arch == "arm64" {
+		p.Arch = Arch.ARM
+	}
+
 	// If this binary has a known checksum, the p.AppVersion will be changed to
 	// 2.0.0beta8+manoto regardless of the value that was sent.
 	if hasManotoChecksum(p.Checksum) {

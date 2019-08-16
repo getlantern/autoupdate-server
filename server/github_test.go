@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -366,11 +367,15 @@ func TestCheckOsVersion(t *testing.T) {
 	// change to a version present on GitHub
 	lastVersionForWindowsXP = "5.3.4"
 	lastVersionForOSXYosemite = "5.3.1"
+	osVersionWindowsXP := "5.1.0"
+	osVersionOSXYosemite := "14.4.1"
 	for _, fields := range [][]string{
-		[]string{"5.1.0", "windows", "386", "3.7.0", lastVersionForWindowsXP},
-		[]string{"5.1.0", "windows", "386", "5.7.0", ""},
-		[]string{"14.4.1", "darwin", "amd64", "3.7.0", lastVersionForOSXYosemite},
-		[]string{"14.4.1", "darwin", "amd64", "5.7.0", ""},
+		[]string{osVersionWindowsXP, "windows", "386", "3.7.0", lastVersionForWindowsXP},
+		[]string{osVersionWindowsXP, "windows", "386", "9.9.9", ""},
+		[]string{osVersionOSXYosemite, "darwin", "amd64", "3.7.0", lastVersionForOSXYosemite},
+		[]string{osVersionOSXYosemite, "darwin", "amd64", "9.9.9", ""},
+		[]string{"", "android", "arm", "9.9.9", ""},
+		[]string{"", "android", "arm64", "9.9.9", ""},
 	} {
 		params := Params{
 			OSVersion:  fields[0],
@@ -379,13 +384,14 @@ func TestCheckOsVersion(t *testing.T) {
 			AppVersion: fields[3],
 			Checksum:   "fake",
 		}
+		versionString := fmt.Sprintf("%s(%s%s/%s)", params.AppVersion, params.OS, params.OSVersion, params.Arch)
 		r, err := testClient.CheckForUpdate(&params)
 		if err == nil {
 			if r.Version != fields[4] {
-				t.Fatalf("Expecting %s", fields[4])
+				t.Fatalf("Expecting %s for %s, got %s", fields[4], versionString, r.Version)
 			}
 		} else if err != ErrNoUpdateAvailable {
-			t.Fatalf("Expect %v", ErrNoUpdateAvailable)
+			t.Fatalf("Expect error '%v' for %s, got '%v'", ErrNoUpdateAvailable, versionString, err)
 		}
 	}
 }
