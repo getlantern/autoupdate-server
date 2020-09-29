@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"testing"
-	"time"
 
 	"github.com/getlantern/go-update"
 	"github.com/getlantern/go-update/check"
@@ -19,29 +18,14 @@ func init() {
 	SetPrivateKey("../_resources/example-keys/private.key")
 }
 
-func TestStartServer(t *testing.T) {
-	releaseManager := NewReleaseManager("getlantern", "lantern")
-	if err := releaseManager.UpdateAssetsMap(); err != nil {
-		t.Fatalf("UpdateAssetsMap: %v", err)
-	}
-
-	updateServer := &UpdateServer{
-		ReleaseManager: releaseManager,
-		PublicAddr:     publicAddr,
-		LocalAddr:      localAddr,
-	}
-
-	go func(t *testing.T) {
-		if err := updateServer.ListenAndServe(); err != nil {
-			t.Fatalf("ListenAndServe: %v", err)
-		}
-	}(t)
-
-	time.Sleep(time.Second * 1)
-}
-
 func TestReachServer(t *testing.T) {
-	var up *update.Update
+	updateServer := NewUpdateServer(publicAddr, localAddr, ".", 1.0)
+
+	updateServer.HandleRepo("/update", "getlantern", "lantern")
+	updateServer.HandleRepo("/update/getlantern/lantern", "getlantern", "lantern")
+
+	go updateServer.ListenAndServe()
+	defer updateServer.Close()
 
 	publicKey, err := ioutil.ReadFile("../_resources/example-keys/public.pub")
 	if err != nil {
@@ -52,13 +36,22 @@ func TestReachServer(t *testing.T) {
 		AppVersion: "3.7.1",
 	}
 
-	up = update.New().ApplyPatch(update.PATCHTYPE_BSDIFF)
+	up := update.New().ApplyPatch(update.PATCHTYPE_BSDIFF)
 
 	if _, err = up.VerifySignatureWithPEM(publicKey); err != nil {
 		t.Fatal("VerifySignatureWithPEM", err)
 	}
 
 	res, err := param.CheckForUpdate(fmt.Sprintf("http://%s/update", localAddr), up)
+	if err != nil {
+		t.Fatalf("CheckForUpdate: %v", err)
+	}
+
+	if res.Url == "" {
+		t.Fatal("Expecting some URL.")
+	}
+
+	res, err = param.CheckForUpdate(fmt.Sprintf("http://%s/update/getlantern/lantern", localAddr), up)
 	if err != nil {
 		t.Fatalf("CheckForUpdate: %v", err)
 	}
