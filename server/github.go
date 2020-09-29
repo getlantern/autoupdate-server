@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -43,7 +44,7 @@ var OS = struct {
 
 // Release struct represents a single github release.
 type Release struct {
-	id      int
+	id      int64
 	URL     string
 	Version semver.Version // Release version.
 	Assets  []Asset        // The list of assets on this release.
@@ -53,7 +54,7 @@ type releasesByID []Release
 
 // Asset struct represents a file included as part of a Release.
 type Asset struct {
-	id        int
+	id        int64
 	v         semver.Version
 	Name      string // Name of the release.
 	URL       string // URL of the patch.
@@ -123,7 +124,7 @@ func (g *ReleaseManager) getReleases() ([]Release, error) {
 	for page := 1; true; page++ {
 		opt := &github.ListOptions{Page: page}
 
-		rels, _, err := g.client.Repositories.ListReleases(g.owner, g.repo, opt)
+		rels, _, err := g.client.Repositories.ListReleases(context.Background(), g.owner, g.repo, opt)
 		if err != nil {
 			return nil, err
 		}
@@ -316,15 +317,12 @@ func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err er
 		g.latestAssetsMap[os] = make(map[string]*Asset)
 	}
 
-	// Only considering non-manoto versions for the latestAssetsMap
-	if !buildStringContainsManoto(asset.v) {
-		if g.latestAssetsMap[os][arch] == nil {
+	if g.latestAssetsMap[os][arch] == nil {
+		g.latestAssetsMap[os][arch] = asset
+	} else {
+		// Compare against already set version.
+		if asset.v.GT(g.latestAssetsMap[os][arch].v) {
 			g.latestAssetsMap[os][arch] = asset
-		} else {
-			// Compare against already set version.
-			if asset.v.GT(g.latestAssetsMap[os][arch].v) {
-				g.latestAssetsMap[os][arch] = asset
-			}
 		}
 	}
 

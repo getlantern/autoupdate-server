@@ -121,12 +121,6 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		p.Arch = Arch.ARM
 	}
 
-	// If this binary has a known checksum, the p.AppVersion will be changed to
-	// 2.0.0beta8+manoto regardless of the value that was sent.
-	if hasManotoChecksum(p.Checksum) {
-		p.AppVersion = manotoBeta8
-	}
-
 	appVersion, err := semver.Parse(p.AppVersion)
 	if err != nil {
 		return nil, fmt.Errorf("Bad app version string %v: %v", p.AppVersion, err)
@@ -135,14 +129,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	var update *Asset
 	var specificVersionToUpgrade string
 
-	// This is a hack that allows Lantern 2.0.0beta8+manoto clients to upgrade to
-	// Lantern 2.0.0+manoto
-	//
-	// See https://github.com/getlantern/lantern/issues/2868
-	if appVersion.String() == manotoBeta8 {
-		// Always return 2.0.0+manoto
-		specificVersionToUpgrade = manotoBeta8Upgrade
-	} else if osVersion, err := semver.Parse(p.OSVersion); err == nil {
+	if osVersion, err := semver.Parse(p.OSVersion); err == nil {
 		if p.OS == "windows" && osVersion.LT(semver.MustParse("6.0.0")) {
 			// Windows XP/2003 or below
 			specificVersionToUpgrade = lastVersionForWindowsXP
