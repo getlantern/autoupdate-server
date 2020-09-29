@@ -22,8 +22,6 @@ ENV PATH $PATH:$GOROOT/bin:$GOPATH/bin
 ENV GO_PACKAGE_URL https://storage.googleapis.com/golang/$GO_VERSION.linux-amd64.tar.gz
 RUN curl -sSL $GO_PACKAGE_URL | tar -xvzf - -C /usr/local
 
-RUN curl https://glide.sh/get | bash
-
 ENV APPSRC_DIR /go/src/$PACKAGE_NAME
 ENV mkdir -p $APPSRC_DIR
 COPY ./ $APPSRC_DIR/
