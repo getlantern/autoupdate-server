@@ -1,8 +1,0 @@
-package: github.com/getlantern/autoupdate-server
-import:
-- package: github.com/blang/semver
-- package: github.com/getlantern/go-update
-- package: github.com/getlantern/golog
-- package: github.com/google/go-github
-  subpackages:
-  - github

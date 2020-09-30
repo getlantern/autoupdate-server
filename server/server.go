@@ -14,10 +14,15 @@ import (
 	"github.com/getlantern/golog"
 )
 
-// Version 3.6.0
-var v360 = semver.MustParse("3.6.0")
-var lastVersionForWindowsXP = "5.4.1"
-var lastVersionForOSXYosemite = "5.4.1"
+const (
+	githubRefreshTime = 30 * time.Minute
+)
+
+var (
+	v360                      = semver.MustParse("3.6.0")
+	lastVersionForWindowsXP   = "5.4.1"
+	lastVersionForOSXYosemite = "5.4.1"
+)
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -121,12 +126,6 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		p.Arch = Arch.ARM
 	}
 
-	// If this binary has a known checksum, the p.AppVersion will be changed to
-	// 2.0.0beta8+manoto regardless of the value that was sent.
-	if hasManotoChecksum(p.Checksum) {
-		p.AppVersion = manotoBeta8
-	}
-
 	appVersion, err := semver.Parse(p.AppVersion)
 	if err != nil {
 		return nil, fmt.Errorf("Bad app version string %v: %v", p.AppVersion, err)
@@ -135,14 +134,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	var update *Asset
 	var specificVersionToUpgrade string
 
-	// This is a hack that allows Lantern 2.0.0beta8+manoto clients to upgrade to
-	// Lantern 2.0.0+manoto
-	//
-	// See https://github.com/getlantern/lantern/issues/2868
-	if appVersion.String() == manotoBeta8 {
-		// Always return 2.0.0+manoto
-		specificVersionToUpgrade = manotoBeta8Upgrade
-	} else if osVersion, err := semver.Parse(p.OSVersion); err == nil {
+	if osVersion, err := semver.Parse(p.OSVersion); err == nil {
 		if p.OS == "windows" && osVersion.LT(semver.MustParse("6.0.0")) {
 			// Windows XP/2003 or below
 			specificVersionToUpgrade = lastVersionForWindowsXP
@@ -209,16 +201,154 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 }
 
 type UpdateServer struct {
-	ReleaseManager *ReleaseManager
-
-	PublicAddr  string
-	LocalAddr   string
-	RolloutRate float64
-
-	PatchesDirectory string
+	chClose          chan struct{}
+	localAddr        string
+	mux              *http.ServeMux
+	patchesDirectory string
+	publicAddr       string
+	rolloutRate      float64
 }
 
-func (u *UpdateServer) closeWithStatus(w http.ResponseWriter, status int) {
+func NewUpdateServer(publicAddr, localAddr, localpatchesDirectory string, rolloutRate float64) *UpdateServer {
+	u := &UpdateServer{
+		chClose:          make(chan struct{}),
+		localAddr:        localAddr,
+		patchesDirectory: localpatchesDirectory,
+		publicAddr:       publicAddr,
+		rolloutRate:      rolloutRate,
+	}
+	u.mux = http.NewServeMux()
+	u.mux.Handle("/patches/", http.StripPrefix("/patches/", http.FileServer(http.Dir(u.patchesDirectory))))
+	return u
+}
+
+func (u *UpdateServer) HandleRepo(path, owner, repo string) {
+	u.mux.Handle(path, u.handlerFor(owner, repo))
+}
+
+func (u *UpdateServer) handlerFor(owner, repo string) http.Handler {
+	releaseManager := NewReleaseManager(owner, repo)
+	// Getting assets...
+	if err := releaseManager.UpdateAssetsMap(); err != nil {
+		// In this case we will not be able to continue.
+		log.Fatal(err)
+	}
+	// Setting a goroutine for pulling updates periodically
+	go u.backgroundUpdate(releaseManager)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var res *Result
+
+		if r.Method != "POST" {
+			closeWithStatus(w, http.StatusNotFound)
+			return
+		}
+		defer r.Body.Close()
+
+		var params Params
+		decoder := json.NewDecoder(r.Body)
+
+		if err = decoder.Decode(&params); err != nil {
+			closeWithStatus(w, http.StatusBadRequest)
+			return
+		}
+
+		if res, err = releaseManager.CheckForUpdate(&params); err != nil {
+			if err == ErrNoUpdateAvailable {
+				closeWithStatus(w, http.StatusNoContent)
+				return
+			}
+			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
+			closeWithStatus(w, http.StatusExpectationFailed)
+			return
+		}
+
+		if u.rolloutRate > 0 && rand.Float64() > u.rolloutRate {
+			log.Debugf("Update skipped. Limited by current roll-out rate (%0.2f%%).", u.rolloutRate*100.0)
+			closeWithStatus(w, http.StatusNoContent)
+			return
+		}
+
+		if params.OS == "darwin" {
+			currentVersion, err := semver.Parse(params.AppVersion)
+			if err != nil {
+				log.Debugf("Failed to parse version (%q): %v", params.AppVersion, err)
+				closeWithStatus(w, http.StatusNoContent)
+				return
+			}
+			if currentVersion.LT(v360) {
+				log.Debugf("Got version %q on OSX, but we cannot update it. Skipped", params.AppVersion)
+				closeWithStatus(w, http.StatusNoContent)
+				return
+			}
+		}
+
+		log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
+
+		if res.PatchURL != "" {
+			res.PatchURL = u.publicAddr + res.PatchURL
+		}
+
+		var content []byte
+		if content, err = json.Marshal(res); err != nil {
+			log.Debugf("Failed to marshal response: %s", err)
+			closeWithStatus(w, http.StatusInternalServerError)
+			return
+		}
+
+		nonce, _ := strconv.ParseInt(r.Header.Get("X-Message-Nonce"), 10, 64) // Can be zero for old clients.
+		hash := sha256.Sum256(append(content, []byte(fmt.Sprintf("%d", nonce))...))
+		messageAuth, err := Sign(hash[:])
+		if err != nil {
+			log.Debugf("Could not sign body: %s", err)
+			closeWithStatus(w, http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Message-Signature", hex.EncodeToString(messageAuth))
+
+		if _, err := w.Write(content); err != nil {
+			log.Debugf("Unable to write response: %s", err)
+		}
+	})
+}
+
+func (u *UpdateServer) ListenAndServe() error {
+	srv := http.Server{
+		Addr:    u.localAddr,
+		Handler: u.mux,
+	}
+	log.Debugf("Starting up HTTP server at %s.", u.localAddr)
+	go func() {
+		<-u.chClose
+		log.Debugf("Closing HTTP server at %s.", u.localAddr)
+		_ = srv.Close()
+	}()
+	return srv.ListenAndServe()
+}
+
+func (u *UpdateServer) Close() {
+	close(u.chClose)
+}
+
+// backgroundUpdate periodically looks for releases.
+func (u *UpdateServer) backgroundUpdate(releaseManager *ReleaseManager) {
+	tk := time.NewTicker(githubRefreshTime)
+	for {
+		select {
+		case <-tk.C:
+			log.Debug("Updating assets...")
+			if err := releaseManager.UpdateAssetsMap(); err != nil {
+				log.Debugf("updateAssets: %s", err)
+			}
+		case <-u.chClose:
+			return
+		}
+	}
+}
+func closeWithStatus(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 	if status == http.StatusNoContent {
 		return
@@ -226,98 +356,4 @@ func (u *UpdateServer) closeWithStatus(w http.ResponseWriter, status int) {
 	if _, err := w.Write([]byte(http.StatusText(status))); err != nil {
 		log.Debugf("Unable to write status %d: %v", status, err)
 	}
-}
-
-func (u *UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var err error
-	var res *Result
-
-	if r.Method != "POST" {
-		u.closeWithStatus(w, http.StatusNotFound)
-		return
-	}
-	defer r.Body.Close()
-
-	var params Params
-	decoder := json.NewDecoder(r.Body)
-
-	if err = decoder.Decode(&params); err != nil {
-		u.closeWithStatus(w, http.StatusBadRequest)
-		return
-	}
-
-	if res, err = u.ReleaseManager.CheckForUpdate(&params); err != nil {
-		if err == ErrNoUpdateAvailable {
-			u.closeWithStatus(w, http.StatusNoContent)
-			return
-		}
-		log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
-		u.closeWithStatus(w, http.StatusExpectationFailed)
-		return
-	}
-
-	if u.RolloutRate > 0 && rand.Float64() > u.RolloutRate {
-		log.Debugf("Update skipped. Limited by current roll-out rate (%0.2f%%).", u.RolloutRate*100.0)
-		u.closeWithStatus(w, http.StatusNoContent)
-		return
-	}
-
-	if params.OS == "darwin" {
-		currentVersion, err := semver.Parse(params.AppVersion)
-		if err != nil {
-			log.Debugf("Failed to parse version (%q): %v", params.AppVersion, err)
-			u.closeWithStatus(w, http.StatusNoContent)
-			return
-		}
-		if currentVersion.LT(v360) {
-			log.Debugf("Got version %q on OSX, but we cannot update it. Skipped", params.AppVersion)
-			u.closeWithStatus(w, http.StatusNoContent)
-			return
-		}
-	}
-
-	log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
-
-	if res.PatchURL != "" {
-		res.PatchURL = u.PublicAddr + res.PatchURL
-	}
-
-	var content []byte
-	if content, err = json.Marshal(res); err != nil {
-		log.Debugf("Failed to marshal response: %s", err)
-		u.closeWithStatus(w, http.StatusInternalServerError)
-		return
-	}
-
-	nonce, _ := strconv.ParseInt(r.Header.Get("X-Message-Nonce"), 10, 64) // Can be zero for old clients.
-	hash := sha256.Sum256(append(content, []byte(fmt.Sprintf("%d", nonce))...))
-	messageAuth, err := Sign(hash[:])
-	if err != nil {
-		log.Debugf("Could not sign body: %s", err)
-		u.closeWithStatus(w, http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("X-Message-Signature", hex.EncodeToString(messageAuth))
-
-	if _, err := w.Write(content); err != nil {
-		log.Debugf("Unable to write response: %s", err)
-	}
-}
-
-func (u *UpdateServer) ListenAndServe() error {
-	mux := http.NewServeMux()
-
-	mux.Handle("/update", u)
-	mux.Handle("/patches/", http.StripPrefix("/patches/", http.FileServer(http.Dir(u.PatchesDirectory))))
-
-	srv := http.Server{
-		Addr:    u.LocalAddr,
-		Handler: mux,
-	}
-
-	log.Debugf("Starting up HTTP server at %s.", u.LocalAddr)
-
-	return srv.ListenAndServe()
 }

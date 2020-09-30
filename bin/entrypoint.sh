@@ -6,7 +6,8 @@ if [ "$RUN_MODE" = "mock" ]; then
     -l 0.0.0.0:9999 \
     -p http://127.0.0.1:9999/ \
     -o getlantern \
-    -n lantern
+    -n lantern \
+    -repos getlantern/lantern,getlantern/beam
 else
   /bin/autoupdate-server \
     -k /keys/private.key \
@@ -14,5 +15,6 @@ else
     -p https://update.getlantern.org/ \
     -o getlantern \
     -r 0.3 \
-    -n lantern
+    -n lantern \
+    -repos getlantern/lantern,getlantern/beam
 fi
