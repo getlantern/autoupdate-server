@@ -19,9 +19,10 @@ const (
 )
 
 var (
-	v360                      = semver.MustParse("3.6.0")
-	lastVersionForWindowsXP   = "5.4.1"
-	lastVersionForOSXYosemite = "5.4.1"
+	v360                        = semver.MustParse("3.6.0")
+	lastVersionForWindowsXP     = "5.4.1"
+	lastVersionForOSXYosemite   = "5.4.1"
+	lastVersionForUbuntu20Minus = "5.9.13"
 )
 
 func init() {
@@ -141,6 +142,9 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 		} else if p.OS == "darwin" && osVersion.LT(semver.MustParse("15.0.0")) {
 			// 0SX 10.10 Yosemite or below
 			specificVersionToUpgrade = lastVersionForOSXYosemite
+		} else if p.OS == "linux" {
+			// TODO: remove this once Linux version works again on < Ubuntu 20.04
+			specificVersionToUpgrade = lastVersionForUbuntu20Minus
 		}
 	}
 	if specificVersionToUpgrade != "" {
