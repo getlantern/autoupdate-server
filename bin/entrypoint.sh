@@ -14,6 +14,7 @@ else
     -l 0.0.0.0:9999 \
     -p https://update.getlantern.org/ \
     -o getlantern \
+    -r 1000 \
     -n lantern \
     -repos lantern:getlantern/lantern
 fi

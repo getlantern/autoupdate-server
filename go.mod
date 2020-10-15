@@ -12,4 +12,5 @@ require (
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kr/binarydist v0.1.0 // indirect
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 )

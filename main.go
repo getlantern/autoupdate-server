@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	flagRolloutRate        = flag.Float64("r", 1.0, "Rollout rate [0.0, 1.0]")
+	flagRateLimit          = flag.Int("r", 0, "Rate limit. How many updates are allowed to process per second. Defaults to no limit.")
 	flagPrivateKey         = flag.String("k", "", "Path to private key.")
 	flagLocalAddr          = flag.String("l", ":9999", "Local bind address.")
 	flagPublicAddr         = flag.String("p", "http://127.0.0.1:9999/", "Public address.")
@@ -40,7 +40,7 @@ func main() {
 
 	server.SetPrivateKey(*flagPrivateKey)
 
-	updateServer := server.NewUpdateServer(*flagPublicAddr, *flagLocalAddr, localPatchesDirectory, *flagRolloutRate)
+	updateServer := server.NewUpdateServer(*flagPublicAddr, *flagLocalAddr, localPatchesDirectory, *flagRateLimit)
 	for _, mapping := range strings.Split(*flagRepos, ",") {
 		fatal := func() { log.Fatalf("expect repo string in 'app:owner/repo' format, got '%s'", mapping) }
 		pair := strings.Split(mapping, ":")
