@@ -20,7 +20,7 @@ var (
 	flagPublicAddr         = flag.String("p", "http://127.0.0.1:9999/", "Public address.")
 	flagGithubOrganization = flag.String("o", "getlantern", "Github organization. For back compatibility to old clients hitting /update endpoint.")
 	flagGithubProject      = flag.String("n", "lantern", "Github project name. For back compatibility to old clients hitting /update endpoint.")
-	flagRepos              = flag.String("repos", "getlantern/lantern", "Comma separated Github repos in <owner/repo> format.")
+	flagRepos              = flag.String("repos", "lantern:getlantern/lantern", "Comma separated mapping of update path to Github repos mapping. The format looks like this 'app1:owner1/repo1,app2:owner2/repo2'")
 	flagHelp               = flag.Bool("h", false, "Shows help.")
 )
 
@@ -41,13 +41,20 @@ func main() {
 	server.SetPrivateKey(*flagPrivateKey)
 
 	updateServer := server.NewUpdateServer(*flagPublicAddr, *flagLocalAddr, localPatchesDirectory, *flagRolloutRate)
-	for _, repo := range strings.Split(*flagRepos, ",") {
-		parts := strings.Split(repo, "/")
-		if len(parts) != 2 {
-			log.Fatalf("expect repo string in <owner/repo> format, got '%s'", repo)
+	for _, mapping := range strings.Split(*flagRepos, ",") {
+		fatal := func() { log.Fatalf("expect repo string in 'app:owner/repo' format, got '%s'", mapping) }
+		pair := strings.Split(mapping, ":")
+		if len(pair) != 2 {
+			fatal()
 		}
-		updateServer.HandleRepo("/update/"+repo, parts[0], parts[1])
+		app := pair[0]
+		parts := strings.Split(pair[1], "/")
+		if len(parts) != 2 {
+			fatal()
+		}
+		updateServer.HandleRepo("/update/"+app, parts[0], parts[1])
 	}
+	// back compatibility
 	updateServer.HandleRepo("/update", *flagGithubOrganization, *flagGithubProject)
 
 	if err := updateServer.ListenAndServe(); err != nil {
