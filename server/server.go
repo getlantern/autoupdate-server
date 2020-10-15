@@ -12,6 +12,7 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/getlantern/golog"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -210,17 +211,22 @@ type UpdateServer struct {
 	mux              *http.ServeMux
 	patchesDirectory string
 	publicAddr       string
-	rolloutRate      float64
+	rateLimit        rate.Limit
+	limiter          *rate.Limiter
 }
 
-func NewUpdateServer(publicAddr, localAddr, localpatchesDirectory string, rolloutRate float64) *UpdateServer {
+func NewUpdateServer(publicAddr, localAddr, localpatchesDirectory string, rateLimit int) *UpdateServer {
 	u := &UpdateServer{
 		chClose:          make(chan struct{}),
 		localAddr:        localAddr,
 		patchesDirectory: localpatchesDirectory,
 		publicAddr:       publicAddr,
-		rolloutRate:      rolloutRate,
+		rateLimit:        rate.Limit(rateLimit),
 	}
+	if u.rateLimit == 0 {
+		u.rateLimit = rate.Inf
+	}
+	u.limiter = rate.NewLimiter(u.rateLimit, int(u.rateLimit))
 	u.mux = http.NewServeMux()
 	u.mux.Handle("/patches/", http.StripPrefix("/patches/", http.FileServer(http.Dir(u.patchesDirectory))))
 	return u
@@ -268,8 +274,8 @@ func (u *UpdateServer) handlerFor(owner, repo string) http.Handler {
 			return
 		}
 
-		if u.rolloutRate > 0 && rand.Float64() > u.rolloutRate {
-			log.Debugf("Update skipped. Limited by current roll-out rate (%0.2f%%).", u.rolloutRate*100.0)
+		if !u.limiter.Allow() {
+			log.Debugf("Update skipped because current rate limit (%.0f/s) is hit.", u.rateLimit)
 			closeWithStatus(w, http.StatusNoContent)
 			return
 		}

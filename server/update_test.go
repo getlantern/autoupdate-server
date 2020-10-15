@@ -19,7 +19,7 @@ func init() {
 }
 
 func TestReachServer(t *testing.T) {
-	updateServer := NewUpdateServer(publicAddr, localAddr, ".", 1.0)
+	updateServer := NewUpdateServer(publicAddr, localAddr, ".", 0)
 
 	updateServer.HandleRepo("/update", "getlantern", "lantern")
 	updateServer.HandleRepo("/update/getlantern/lantern", "getlantern", "lantern")
