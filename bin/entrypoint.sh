@@ -7,7 +7,7 @@ if [ "$RUN_MODE" = "mock" ]; then
     -p http://127.0.0.1:9999/ \
     -o getlantern \
     -n lantern \
-    -repos lantern:getlantern/lantern
+    -repos lantern:getlantern/lantern,beam:xiaoshoudian/xiazai
 else
   /bin/autoupdate-server \
     -k /keys/private.key \
@@ -16,5 +16,5 @@ else
     -o getlantern \
     -r 1000 \
     -n lantern \
-    -repos lantern:getlantern/lantern
+    -repos lantern:getlantern/lantern,beam:xiaoshoudian/xiazai
 fi
