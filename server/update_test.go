@@ -21,8 +21,8 @@ func init() {
 func TestReachServer(t *testing.T) {
 	updateServer := NewUpdateServer(publicAddr, localAddr, ".", 0)
 
-	updateServer.HandleRepo("/update", "getlantern", "lantern")
-	updateServer.HandleRepo("/update/getlantern/lantern", "getlantern", "lantern")
+	updateServer.HandleRepo("", "getlantern", "lantern")
+	updateServer.HandleRepo("lantern", "getlantern", "lantern")
 
 	go updateServer.ListenAndServe()
 	defer updateServer.Close()
@@ -51,7 +51,7 @@ func TestReachServer(t *testing.T) {
 		t.Fatal("Expecting some URL.")
 	}
 
-	res, err = param.CheckForUpdate(fmt.Sprintf("http://%s/update/getlantern/lantern", localAddr), up)
+	res, err = param.CheckForUpdate(fmt.Sprintf("http://%s/update/lantern", localAddr), up)
 	if err != nil {
 		t.Fatalf("CheckForUpdate: %v", err)
 	}
