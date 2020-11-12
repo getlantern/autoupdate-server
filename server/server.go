@@ -92,7 +92,7 @@ type Result struct {
 
 // CheckForUpdate receives a *Params message and emits a *Result. If both res
 // and err are nil it means no update is available.
-func (g *ReleaseManager) CheckForUpdate(app string, p *Params) (res *Result, err error) {
+func (g *ReleaseManager) CheckForUpdate(p *Params, isLantern bool) (res *Result, err error) {
 
 	// Keep for the future.
 	if p.Version < 1 {
@@ -139,7 +139,7 @@ func (g *ReleaseManager) CheckForUpdate(app string, p *Params) (res *Result, err
 	}
 
 	var update *Asset
-	if app == appLantern {
+	if isLantern {
 		if update, err = g.specificLanternVersionToUpgrade(p); err != nil {
 			return nil, fmt.Errorf("No upgrade for version %s %s/%s: %v", p.AppVersion, p.OS, p.Arch, err)
 		}
@@ -276,7 +276,8 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 			return
 		}
 
-		if res, err = releaseManager.CheckForUpdate(app, &params); err != nil {
+		isLantern := app == appLantern
+		if res, err = releaseManager.CheckForUpdate(&params, isLantern); err != nil {
 			if err == ErrNoUpdateAvailable {
 				closeWithStatus(w, http.StatusNoContent)
 				return
@@ -292,7 +293,7 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 			return
 		}
 
-		if app == appLantern && params.OS == "darwin" {
+		if isLantern && params.OS == "darwin" {
 			currentVersion, err := semver.Parse(params.AppVersion)
 			if err != nil {
 				log.Debugf("Failed to parse version (%q): %v", params.AppVersion, err)

@@ -223,7 +223,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				Checksum:   asset.Checksum,
 			}
 
-			r, err := testClient.CheckForUpdate(appLantern, &params)
+			r, err := testClient.CheckForUpdate(&params, true)
 			if err != nil {
 				if err == ErrNoUpdateAvailable {
 					// That's OK, let's make sure.
@@ -257,7 +257,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				Checksum:   "?",
 			}
 
-			r, err := testClient.CheckForUpdate(appLantern, &params)
+			r, err := testClient.CheckForUpdate(&params, true)
 			if err != nil {
 				if err == ErrNoUpdateAvailable {
 					// That's OK, let's make sure.
@@ -304,7 +304,7 @@ func TestCheckOsVersion(t *testing.T) {
 			Checksum:   "fake",
 		}
 		versionString := fmt.Sprintf("%s(%s%s/%s)", params.AppVersion, params.OS, params.OSVersion, params.Arch)
-		r, err := testClient.CheckForUpdate(appLantern, &params)
+		r, err := testClient.CheckForUpdate(&params, true)
 		if err == nil {
 			if r.Version != fields[4] {
 				t.Fatalf("Expecting %s for %s, got %s", fields[4], versionString, r.Version)
