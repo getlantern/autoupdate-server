@@ -52,10 +52,10 @@ func main() {
 		if len(parts) != 2 {
 			fatal()
 		}
-		updateServer.HandleRepo("/update/"+app, parts[0], parts[1])
+		updateServer.HandleRepo(app, parts[0], parts[1])
 	}
 	// back compatibility
-	updateServer.HandleRepo("/update", *flagGithubOrganization, *flagGithubProject)
+	updateServer.HandleRepo("", *flagGithubOrganization, *flagGithubProject)
 
 	if err := updateServer.ListenAndServe(); err != nil {
 		log.Fatalf("ListenAndServe: ", err)
