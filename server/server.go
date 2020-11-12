@@ -245,6 +245,7 @@ func (u *UpdateServer) HandleRepo(app, owner, repo string) {
 	} else {
 		app = appLantern
 	}
+	log.Debugf("HTTP path %q maps to repo %s/%s", path, owner, repo)
 	u.mux.Handle(path, u.handlerFor(app, owner, repo))
 }
 
