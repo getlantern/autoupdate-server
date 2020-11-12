@@ -140,7 +140,7 @@ func (g *ReleaseManager) CheckForUpdate(app string, p *Params) (res *Result, err
 
 	var update *Asset
 	if app == appLantern {
-		if update, err = g.specificVersionToUpgrade(p); err != nil {
+		if update, err = g.specificLanternVersionToUpgrade(p); err != nil {
 			return nil, fmt.Errorf("No upgrade for version %s %s/%s: %v", p.AppVersion, p.OS, p.Arch, err)
 		}
 	}
@@ -196,7 +196,7 @@ func (g *ReleaseManager) CheckForUpdate(app string, p *Params) (res *Result, err
 	return r, nil
 }
 
-func (g *ReleaseManager) specificVersionToUpgrade(p *Params) (*Asset, error) {
+func (g *ReleaseManager) specificLanternVersionToUpgrade(p *Params) (*Asset, error) {
 	var specificVersion string
 	if osVersion, err := semver.Parse(p.OSVersion); err == nil {
 		if p.OS == "windows" && osVersion.LT(windowsXPMinus) {

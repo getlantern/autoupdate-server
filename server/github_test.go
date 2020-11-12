@@ -223,7 +223,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				Checksum:   asset.Checksum,
 			}
 
-			r, err := testClient.CheckForUpdate(&params)
+			r, err := testClient.CheckForUpdate(appLantern, &params)
 			if err != nil {
 				if err == ErrNoUpdateAvailable {
 					// That's OK, let's make sure.
@@ -257,7 +257,7 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 				Checksum:   "?",
 			}
 
-			r, err := testClient.CheckForUpdate(&params)
+			r, err := testClient.CheckForUpdate(appLantern, &params)
 			if err != nil {
 				if err == ErrNoUpdateAvailable {
 					// That's OK, let's make sure.
@@ -284,14 +284,14 @@ func TestDownloadOldestVersionAndUpgradeIt(t *testing.T) {
 func TestCheckOsVersion(t *testing.T) {
 	testClient := getOrCreateTestClient(t)
 	// change to a version present on GitHub
-	lastVersionForWindowsXP = "5.3.4"
-	lastVersionForOSXYosemite = "5.3.1"
+	lastLanternVersionForWindowsXP = "5.3.4"
+	lastLanternVersionForOSXYosemite = "5.3.1"
 	osVersionWindowsXP := "5.1.0"
 	osVersionOSXYosemite := "14.4.1"
 	for _, fields := range [][]string{
-		[]string{osVersionWindowsXP, "windows", "386", "3.7.0", lastVersionForWindowsXP},
+		[]string{osVersionWindowsXP, "windows", "386", "3.7.0", lastLanternVersionForWindowsXP},
 		[]string{osVersionWindowsXP, "windows", "386", "9.9.9", ""},
-		[]string{osVersionOSXYosemite, "darwin", "amd64", "3.7.0", lastVersionForOSXYosemite},
+		[]string{osVersionOSXYosemite, "darwin", "amd64", "3.7.0", lastLanternVersionForOSXYosemite},
 		[]string{osVersionOSXYosemite, "darwin", "amd64", "9.9.9", ""},
 		[]string{"", "android", "arm", "9.9.9", ""},
 		[]string{"", "android", "arm64", "9.9.9", ""},
@@ -304,7 +304,7 @@ func TestCheckOsVersion(t *testing.T) {
 			Checksum:   "fake",
 		}
 		versionString := fmt.Sprintf("%s(%s%s/%s)", params.AppVersion, params.OS, params.OSVersion, params.Arch)
-		r, err := testClient.CheckForUpdate(&params)
+		r, err := testClient.CheckForUpdate(appLantern, &params)
 		if err == nil {
 			if r.Version != fields[4] {
 				t.Fatalf("Expecting %s for %s, got %s", fields[4], versionString, r.Version)
