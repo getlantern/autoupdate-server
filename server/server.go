@@ -17,13 +17,18 @@ import (
 
 const (
 	githubRefreshTime = 30 * time.Minute
+	httpPathPrefix    = "/update"
+	appLantern        = "lantern"
 )
 
 var (
-	v360                        = semver.MustParse("3.6.0")
-	lastVersionForWindowsXP     = "5.4.1"
-	lastVersionForOSXYosemite   = "5.4.1"
-	lastVersionForUbuntu20Minus = "5.9.13"
+	v360 = semver.MustParse("3.6.0")
+	// Windows XP/2003 or below
+	windowsXPMinus                 = semver.MustParse("6.0.0")
+	lastLanternVersionForWindowsXP = "5.4.1"
+	// 0SX 10.10 Yosemite or below
+	osxYosemiteMinus                 = semver.MustParse("15.0.0")
+	lastLanternVersionForOSXYosemite = "5.4.1"
 )
 
 func init() {
@@ -87,7 +92,7 @@ type Result struct {
 
 // CheckForUpdate receives a *Params message and emits a *Result. If both res
 // and err are nil it means no update is available.
-func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
+func (g *ReleaseManager) CheckForUpdate(p *Params, isLantern bool) (res *Result, err error) {
 
 	// Keep for the future.
 	if p.Version < 1 {
@@ -134,22 +139,8 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	}
 
 	var update *Asset
-	var specificVersionToUpgrade string
-
-	if osVersion, err := semver.Parse(p.OSVersion); err == nil {
-		if p.OS == "windows" && osVersion.LT(semver.MustParse("6.0.0")) {
-			// Windows XP/2003 or below
-			specificVersionToUpgrade = lastVersionForWindowsXP
-		} else if p.OS == "darwin" && osVersion.LT(semver.MustParse("15.0.0")) {
-			// 0SX 10.10 Yosemite or below
-			specificVersionToUpgrade = lastVersionForOSXYosemite
-		} else if p.OS == "linux" {
-			// TODO: remove this once Linux version works again on < Ubuntu 20.04
-			specificVersionToUpgrade = lastVersionForUbuntu20Minus
-		}
-	}
-	if specificVersionToUpgrade != "" {
-		if update, err = g.lookupAssetWithVersion(p.OS, p.Arch, specificVersionToUpgrade); err != nil {
+	if isLantern {
+		if update, err = g.specificLanternVersionToUpgrade(p); err != nil {
 			return nil, fmt.Errorf("No upgrade for version %s %s/%s: %v", p.AppVersion, p.OS, p.Arch, err)
 		}
 	}
@@ -205,6 +196,21 @@ func (g *ReleaseManager) CheckForUpdate(p *Params) (res *Result, err error) {
 	return r, nil
 }
 
+func (g *ReleaseManager) specificLanternVersionToUpgrade(p *Params) (*Asset, error) {
+	var specificVersion string
+	if osVersion, err := semver.Parse(p.OSVersion); err == nil {
+		if p.OS == "windows" && osVersion.LT(windowsXPMinus) {
+			specificVersion = lastLanternVersionForWindowsXP
+		} else if p.OS == "darwin" && osVersion.LT(osxYosemiteMinus) {
+			specificVersion = lastLanternVersionForOSXYosemite
+		}
+	}
+	if specificVersion != "" {
+		return g.lookupAssetWithVersion(p.OS, p.Arch, specificVersion)
+	}
+	return nil, nil
+}
+
 type UpdateServer struct {
 	chClose          chan struct{}
 	localAddr        string
@@ -232,11 +238,18 @@ func NewUpdateServer(publicAddr, localAddr, localpatchesDirectory string, rateLi
 	return u
 }
 
-func (u *UpdateServer) HandleRepo(path, owner, repo string) {
-	u.mux.Handle(path, u.handlerFor(owner, repo))
+func (u *UpdateServer) HandleRepo(app, owner, repo string) {
+	path := httpPathPrefix
+	if app != "" {
+		path = path + "/" + app
+	} else {
+		app = appLantern
+	}
+	log.Debugf("HTTP path %q maps to repo %s/%s", path, owner, repo)
+	u.mux.Handle(path, u.handlerFor(app, owner, repo))
 }
 
-func (u *UpdateServer) handlerFor(owner, repo string) http.Handler {
+func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 	releaseManager := NewReleaseManager(owner, repo)
 	// Getting assets...
 	if err := releaseManager.UpdateAssetsMap(); err != nil {
@@ -264,12 +277,13 @@ func (u *UpdateServer) handlerFor(owner, repo string) http.Handler {
 			return
 		}
 
-		if res, err = releaseManager.CheckForUpdate(&params); err != nil {
+		isLantern := app == appLantern
+		if res, err = releaseManager.CheckForUpdate(&params, isLantern); err != nil {
 			if err == ErrNoUpdateAvailable {
 				closeWithStatus(w, http.StatusNoContent)
 				return
 			}
-			log.Debugf("CheckForUpdate failed. OS/Version: %s/%s, error: %q", params.OS, params.AppVersion, err)
+			log.Debugf("CheckForUpdate failed. App/OS/Version: %s/%s/%s, error: %q", app, params.OS, params.AppVersion, err)
 			closeWithStatus(w, http.StatusExpectationFailed)
 			return
 		}
@@ -280,7 +294,7 @@ func (u *UpdateServer) handlerFor(owner, repo string) http.Handler {
 			return
 		}
 
-		if params.OS == "darwin" {
+		if isLantern && params.OS == "darwin" {
 			currentVersion, err := semver.Parse(params.AppVersion)
 			if err != nil {
 				log.Debugf("Failed to parse version (%q): %v", params.AppVersion, err)
@@ -288,13 +302,13 @@ func (u *UpdateServer) handlerFor(owner, repo string) http.Handler {
 				return
 			}
 			if currentVersion.LT(v360) {
-				log.Debugf("Got version %q on OSX, but we cannot update it. Skipped", params.AppVersion)
+				log.Debugf("Got %q version %q on OSX, but we cannot update it. Skipped", app, params.AppVersion)
 				closeWithStatus(w, http.StatusNoContent)
 				return
 			}
 		}
 
-		log.Debugf("Got query from client %q/%q, resolved to upgrade to %q using %q strategy.", params.AppVersion, params.OS, res.Version, res.PatchType)
+		log.Debugf("Got query from client %q/%q/%q, resolved to upgrade to %q using %q strategy.", app, params.AppVersion, params.OS, res.Version, res.PatchType)
 
 		if res.PatchURL != "" {
 			res.PatchURL = u.publicAddr + res.PatchURL

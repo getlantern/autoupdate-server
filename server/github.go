@@ -136,7 +136,7 @@ func (g *ReleaseManager) getReleases() ([]Release, error) {
 			version := *rels[i].TagName
 			v, err := semver.Parse(version)
 			if err != nil {
-				log.Debugf("Release %q is not semantically versioned (%q). Skipping.", version, err)
+				log.Debugf("Release %q of %s/%s is not semantically versioned (%q). Skipping.", g.owner, g.repo, version, err)
 				continue
 			}
 			rel := Release{
@@ -152,7 +152,7 @@ func (g *ReleaseManager) getReleases() ([]Release, error) {
 					URL:  *asset.BrowserDownloadURL,
 				})
 			}
-			log.Debugf("Release %q has %d assets...", version, len(rel.Assets))
+			log.Debugf("Release %q of %s/%s has %d assets...", version, g.owner, g.repo, len(rel.Assets))
 			releases = append(releases, rel)
 		}
 	}
@@ -171,7 +171,7 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 	if rs, err = g.getReleases(); err != nil {
 		return err
 	}
-	log.Debugf("Found %d releases", len(rs))
+	log.Debugf("Found %d releases under %s/%s", len(rs), g.owner, g.repo)
 
 	// Resetting file hashes.
 	fileHashMapMu.Lock()
