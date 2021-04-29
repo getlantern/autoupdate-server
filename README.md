@@ -17,7 +17,7 @@ Make sure you have the [bsdiff](http://www.daemonology.net/bsdiff/) program
 installed:
 
 ```
-apt-get instal -y bsdiff
+apt-get install -y bsdiff
 yum install -y bsdiff
 brew install bsdiff
 ```
@@ -108,7 +108,6 @@ running app.
 Use the `mock` build tag to build a binary that mocks Github's API responses.
 
 ```
-glide install
 go build -tags mock github.com/getlantern/autoupdate-server
 ```
 
