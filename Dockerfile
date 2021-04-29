@@ -10,7 +10,7 @@ ENV PACKAGE_NAME github.com/getlantern/autoupdate-server
 ENV WORKDIR /app
 RUN mkdir -p $WORKDIR
 
-ENV GO_VERSION go1.14.3
+ENV GO_VERSION go1.16.3
 
 ENV GOROOT /usr/local/go
 
