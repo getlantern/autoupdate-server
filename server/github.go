@@ -139,6 +139,10 @@ func (g *ReleaseManager) getReleases() ([]Release, error) {
 				log.Debugf("Release %q of %s/%s is not semantically versioned (%q). Skipping.", g.owner, g.repo, version, err)
 				continue
 			}
+			if v.Major < 4 {
+				log.Debugf("Ignoring release %s because it is too old", version)
+				continue
+			}
 			rel := Release{
 				id:      *rels[i].ID,
 				URL:     *rels[i].ZipballURL,
