@@ -1,10 +1,7 @@
 # autoupdate-server
 
-The autoupdate-server package provides a server that allows Lantern clients to
-compare their running software version against releases posted at
-[Github](https://www.github.com), if a new version is available, the
-autoupdate-server will provide a binary diff that the client can use to patch
-itself.
+The autoupdate-server package provides a server that allows Lantern clients to compare their running software version against releases posted at
+[Github](https://www.github.com), if a new version is available, the autoupdate-server will provide a binary diff that the client can use to patch itself.
 
 ## Features
 
@@ -13,8 +10,7 @@ itself.
 
 ## Requisites
 
-Make sure you have the [bsdiff](http://www.daemonology.net/bsdiff/) program
-installed:
+Make sure you have the [bsdiff](http://www.daemonology.net/bsdiff/) program installed:
 
 ```
 apt-get install -y bsdiff
@@ -22,8 +18,7 @@ yum install -y bsdiff
 brew install bsdiff
 ```
 
-The `bsdiff` program is used to calculate a binary diff of two files and
-generate a patch.
+The `bsdiff` program is used to calculate a binary diff of two files and generate a patch.
 
 In order to sign binary files you'll need a keypair:
 
@@ -32,8 +27,7 @@ openssl genrsa -out private.pem 2048
 openssl rsa -in private.pem -out public.pem -pubout
 ```
 
-The private key must match the public key set in the autoupdate package
-configuration.
+The private key must match the public key set in the autoupdate package configuration.
 
 ## Deploying
 
@@ -81,8 +75,7 @@ BL0RSJZb4JgqCtRleQRcQg94+b4gvEllScprTHSQnIbrUVof79FoVQ==
 -----END RSA PRIVATE KEY-----
 ```
 
-Save it to `private.pem` and run the server pointing to the autoupdate-server
-repo that belongs to the getlantern organization:
+Save it to `private.pem` and run the server pointing to the autoupdate-server repo that belongs to the getlantern organization:
 
 ```sh
 go run *.go -k private.pem -o getlantern -n autoupdate-server
@@ -91,13 +84,11 @@ go run *.go -k private.pem -o getlantern -n autoupdate-server
 ```
 
 The private key above matches the public key the
-https://github.com/getlantern/autoupdate/tree/master/_test_app example uses.
+https://github.com/getlantern/autoupdate/tree/main/_test_app example uses.
 
-The first time you run the server, it will download all required assets, so
-you'll probably need to wait a bit before the HTTP server is started.
+The first time you run the server, it will download all required assets, so you'll probably need to wait a bit before the HTTP server is started.
 
-Once you see the "Starting HTTP server" message you can continue testing a
-running app.
+Once you see the "Starting HTTP server" message you can continue testing a running app.
 
 ```sh
 # 2015/03/13 18:22:43 Starting up HTTP server at :9197.
@@ -111,8 +102,7 @@ Use the `mock` build tag to build a binary that mocks Github's API responses.
 go build -tags mock github.com/getlantern/autoupdate-server
 ```
 
-The you can run this binary using the publicly available private key for
-testing:
+The you can run this binary using the publicly available private key for testing:
 
 ```
 autoupdate-server \
@@ -123,17 +113,14 @@ autoupdate-server \
 	-n lantern
 ```
 
-Alternatively, you could use the `Makefile` script that automatizes this task by
-using a docker container:
+Alternatively, you could use the `Makefile` script that automatizes this task by using a docker container:
 
 ```
 make mock-server
 docker logs --tail 20 -f autoupdate-server
 ```
 
-Make sure the Lantern binary uses the public key that matches the private key
-for the mock server by building it with the `mockupdate` build tag and pointing
-the update server to `http://127.0.0.1:9999`:
+Make sure the Lantern binary uses the public key that matches the private key for the mock server by building it with the `mockupdate` build tag and pointing the update server to `http://127.0.0.1:9999`:
 
 ```
 cd $GOPATH/src/github.com/getlantern/flashlight
@@ -143,5 +130,4 @@ go build -o lantern \
 github.com/getlantern/flashlight/main
 ```
 
-The above command will produce a Lantern binary that will accept an update from
-a mock server running on localhost.
+The above command will produce a Lantern binary that will accept an update from a mock server running on localhost.
