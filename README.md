@@ -35,6 +35,13 @@ The private key must match the public key set in the autoupdate package configur
 
 To change the rollout rate, i.e., what percentage of valid update requests should get fulfilled, edit `bin/entrypoint.sh` with the appropriate `-r` option, commit the change, and `make production` again.
 
+You can monitor the server in production with:
+
+```
+ssh root@update.getlantern.org
+docker logs autoupdate-server
+```
+
 ## How to run the autoupdate server
 
 ```
