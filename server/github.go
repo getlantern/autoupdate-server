@@ -187,6 +187,10 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 		log.Debugf("Getting assets for release %q...", rs[i].Version)
 		for j := range rs[i].Assets {
 			log.Debugf("Found %q.", rs[i].Assets[j].Name)
+			if rs[i].Assets[j].v.Major < 4 {
+				log.Debugf("Ignoring asset %s because it is too old", rs[i].Assets[j].Name)
+				continue
+			}
 			// Does this asset represent a binary update?
 			if isUpdateAsset(rs[i].Assets[j].Name) {
 				log.Debugf("%q is an auto-update asset.", rs[i].Assets[j].Name)
@@ -194,10 +198,10 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 				asset.v = rs[i].Version
 				info, err := getAssetInfo(asset.Name)
 				if err != nil {
-					return fmt.Errorf("Could not get asset info: %q", err)
+					return fmt.Errorf("could not get asset info: %q", err)
 				}
 				if err = g.pushAsset(info.OS, info.Arch, &asset); err != nil {
-					return fmt.Errorf("Could not push asset: %q", err)
+					return fmt.Errorf("could not push asset: %q", err)
 				}
 			} else {
 				log.Debugf("%q is not an auto-update asset. Skipping.", rs[i].Assets[j].Name)
@@ -213,15 +217,15 @@ func (g *ReleaseManager) getProductUpdate(os string, arch string) (asset *Asset,
 	defer g.mu.RUnlock()
 
 	if g.latestAssetsMap == nil {
-		return nil, fmt.Errorf("No updates available.")
+		return nil, fmt.Errorf("no updates available")
 	}
 
 	if g.latestAssetsMap[os] == nil {
-		return nil, fmt.Errorf("No such OS.")
+		return nil, fmt.Errorf("no such OS")
 	}
 
 	if g.latestAssetsMap[os][arch] == nil {
-		return nil, fmt.Errorf("No such Arch.")
+		return nil, fmt.Errorf("no such Arch")
 	}
 
 	return g.latestAssetsMap[os][arch], nil
@@ -232,19 +236,19 @@ func (g *ReleaseManager) lookupAssetWithChecksum(os string, arch string, checksu
 	defer g.mu.RUnlock()
 
 	if os == OS.Android {
-		return nil, fmt.Errorf("Checksums disabled for Android.")
+		return nil, fmt.Errorf("checksums disabled for Android")
 	}
 
 	if g.updateAssetsMap == nil {
-		return nil, fmt.Errorf("No updates available.")
+		return nil, fmt.Errorf("no updates available")
 	}
 
 	if g.updateAssetsMap[os] == nil {
-		return nil, fmt.Errorf("No such OS.")
+		return nil, fmt.Errorf("no such OS")
 	}
 
 	if g.updateAssetsMap[os][arch] == nil {
-		return nil, fmt.Errorf("No such Arch.")
+		return nil, fmt.Errorf("no such Arch")
 	}
 
 	for _, a := range g.updateAssetsMap[os][arch] {
@@ -253,7 +257,7 @@ func (g *ReleaseManager) lookupAssetWithChecksum(os string, arch string, checksu
 		}
 	}
 
-	return nil, fmt.Errorf("Could not find a matching checksum in assets list.")
+	return nil, fmt.Errorf("could not find a matching checksum in assets list")
 }
 
 func (g *ReleaseManager) lookupAssetWithVersion(os string, arch string, version string) (asset *Asset, err error) {
@@ -261,15 +265,15 @@ func (g *ReleaseManager) lookupAssetWithVersion(os string, arch string, version 
 	defer g.mu.RUnlock()
 
 	if g.updateAssetsMap == nil {
-		return nil, fmt.Errorf("No updates available.")
+		return nil, fmt.Errorf("no updates available")
 	}
 
 	if g.updateAssetsMap[os] == nil {
-		return nil, fmt.Errorf("No such OS.")
+		return nil, fmt.Errorf("no such OS")
 	}
 
 	if g.updateAssetsMap[os][arch] == nil {
-		return nil, fmt.Errorf("No such Arch.")
+		return nil, fmt.Errorf("no such Arch")
 	}
 
 	for _, a := range g.updateAssetsMap[os][arch] {
@@ -278,7 +282,7 @@ func (g *ReleaseManager) lookupAssetWithVersion(os string, arch string, version 
 		}
 	}
 
-	return nil, fmt.Errorf("Could not find a matching version in assets list.")
+	return nil, fmt.Errorf("could not find a matching version in assets list")
 }
 
 func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err error) {
@@ -291,7 +295,7 @@ func (g *ReleaseManager) pushAsset(os string, arch string, asset *Asset) (err er
 	asset.Arch = arch
 
 	if version.EQ(emptyVersion) {
-		return fmt.Errorf("Missing asset version.")
+		return fmt.Errorf("missing asset version")
 	}
 
 	var localfile string
@@ -337,10 +341,10 @@ func getAssetInfo(s string) (*AssetInfo, error) {
 	matches := updateAssetRe.FindStringSubmatch(s)
 	if len(matches) >= 3 {
 		if matches[1] != OS.Windows && matches[1] != OS.Linux && matches[1] != OS.Darwin && matches[1] != OS.Android {
-			return nil, fmt.Errorf("Unknown OS: \"%s\".", matches[1])
+			return nil, fmt.Errorf("unknown OS: \"%s\"", matches[1])
 		}
 		if matches[2] != Arch.X64 && matches[2] != Arch.X86 && matches[2] != Arch.ARM {
-			return nil, fmt.Errorf("Unknown architecture \"%s\".", matches[2])
+			return nil, fmt.Errorf("unknown architecture \"%s\"", matches[2])
 		}
 		info := &AssetInfo{
 			OS:   matches[1],
@@ -348,7 +352,7 @@ func getAssetInfo(s string) (*AssetInfo, error) {
 		}
 		return info, nil
 	}
-	return nil, fmt.Errorf("Could not find asset info.")
+	return nil, fmt.Errorf("could not find asset info")
 }
 
 func isUpdateAsset(s string) bool {
