@@ -187,10 +187,12 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 		log.Debugf("Getting assets for release %q...", rs[i].Version)
 		for j := range rs[i].Assets {
 			log.Debugf("Found %q.", rs[i].Assets[j].Name)
-			if rs[i].Assets[j].v.Major < 4 {
-				log.Debugf("Ignoring asset %s because it is too old", rs[i].Assets[j].Name)
-				continue
-			}
+			/*
+				if rs[i].Assets[j].v.Major < 4 {
+					log.Debugf("Ignoring asset %s because it is too old", rs[i].Assets[j].Name)
+					continue
+				}
+			*/
 			// Does this asset represent a binary update?
 			if isUpdateAsset(rs[i].Assets[j].Name) {
 				log.Debugf("%q is an auto-update asset.", rs[i].Assets[j].Name)
