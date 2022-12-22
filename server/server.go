@@ -121,11 +121,11 @@ func (g *ReleaseManager) CheckForUpdate(p *Params, isLantern bool) (res *Result,
 	// The checksum is optional if the OS is Android
 	// since we aren't doing binary diffs
 	if p.OS != OS.Android && p.Checksum == "" {
-		return nil, fmt.Errorf("Checksum must not be nil")
+		return nil, fmt.Errorf("checksum must not be nil")
 	}
 
 	if p.Arch == "" {
-		return nil, fmt.Errorf("Arch is required")
+		return nil, fmt.Errorf("arch is required")
 	}
 
 	// One APK to support both ARM and ARM64 on Android
@@ -135,20 +135,20 @@ func (g *ReleaseManager) CheckForUpdate(p *Params, isLantern bool) (res *Result,
 
 	appVersion, err := semver.Parse(p.AppVersion)
 	if err != nil {
-		return nil, fmt.Errorf("Bad app version string %v: %v", p.AppVersion, err)
+		return nil, fmt.Errorf("bad app version string %v: %v", p.AppVersion, err)
 	}
 
 	var update *Asset
 	if isLantern {
 		if update, err = g.specificLanternVersionToUpgrade(p); err != nil {
-			return nil, fmt.Errorf("No upgrade for version %s %s/%s: %v", p.AppVersion, p.OS, p.Arch, err)
+			return nil, fmt.Errorf("no upgrade for version %s %s/%s: %v", p.AppVersion, p.OS, p.Arch, err)
 		}
 	}
 
 	// Looking if there is a newer version for the os/arch.
 	if update == nil {
 		if update, err = g.getProductUpdate(p.OS, p.Arch); err != nil {
-			return nil, fmt.Errorf("Could not lookup for updates: %s", err)
+			return nil, fmt.Errorf("could not lookup for updates: %s", err)
 		}
 	}
 
@@ -179,7 +179,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params, isLantern bool) (res *Result,
 	// Generate a binary diff of the two assets.
 	var patch *Patch
 	if patch, err = generatePatch(current.URL, update.URL); err != nil {
-		return nil, fmt.Errorf("Unable to generate patch: %q", err)
+		return nil, fmt.Errorf("unable to generate patch: %q", err)
 	}
 
 	// Generate result with the patch URL.
