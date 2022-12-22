@@ -280,6 +280,7 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 		isLantern := app == appLantern
 		if res, err = releaseManager.CheckForUpdate(&params, isLantern); err != nil {
 			if err == ErrNoUpdateAvailable {
+				log.Debugf("No update available for: %s/%s/%s", app, params.OS, params.AppVersion)
 				closeWithStatus(w, http.StatusNoContent)
 				return
 			}
