@@ -101,7 +101,7 @@ func (g *ReleaseManager) CheckForUpdate(p *Params, isLantern bool) (res *Result,
 
 	// p must not be nil.
 	if p == nil {
-		return nil, fmt.Errorf("Expecting params")
+		return nil, fmt.Errorf("expecting params")
 	}
 
 	if p.Tags != nil {

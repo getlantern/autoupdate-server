@@ -195,7 +195,7 @@ func (g *ReleaseManager) UpdateAssetsMap() (err error) {
 			*/
 			// Does this asset represent a binary update?
 			if isUpdateAsset(rs[i].Assets[j].Name) {
-				log.Debugf("%q is an auto-update asset.", rs[i].Assets[j].Name)
+				log.Debugf("%q/%v is an auto-update asset.", rs[i].Assets[j].Name, rs[i].Assets[j].v.Major)
 				asset := rs[i].Assets[j]
 				asset.v = rs[i].Version
 				info, err := getAssetInfo(asset.Name)
