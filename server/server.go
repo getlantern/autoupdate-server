@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"github.com/getlantern/golog"
 	"golang.org/x/time/rate"
+
+	"github.com/getlantern/golog"
 )
 
 const (
@@ -136,6 +137,10 @@ func (g *ReleaseManager) CheckForUpdate(p *Params, isLantern bool) (res *Result,
 	appVersion, err := semver.Parse(p.AppVersion)
 	if err != nil {
 		return nil, fmt.Errorf("Bad app version string %v: %v", p.AppVersion, err)
+	}
+	if p.OS == OS.Android && p.AppVersion == "9999.99.99-dev" {
+		log.Debugf("received dev version string %v from android device, assume really low version", p.AppVersion)
+		appVersion, _ = semver.Parse("1.0.0")
 	}
 
 	var update *Asset
