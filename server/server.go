@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,6 +12,8 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"github.com/getlantern/autoupdate-server/instrument"
+	"github.com/getlantern/autoupdate-server/otel"
 	"github.com/getlantern/golog"
 	"golang.org/x/time/rate"
 )
@@ -214,6 +217,7 @@ func (g *ReleaseManager) specificLanternVersionToUpgrade(p *Params) (*Asset, err
 type UpdateServer struct {
 	chClose          chan struct{}
 	localAddr        string
+	instrument       instrument.Instrument
 	mux              *http.ServeMux
 	patchesDirectory string
 	publicAddr       string
@@ -259,6 +263,8 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 	// Setting a goroutine for pulling updates periodically
 	go u.backgroundUpdate(releaseManager)
 
+	u.configureHoneycomb(context.Background())
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var res *Result
@@ -276,6 +282,14 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 			closeWithStatus(w, http.StatusBadRequest)
 			return
 		}
+		defer func(params *Params, r *http.Request, w http.ResponseWriter) {
+			u.instrument.UpdateStats(instrument.ClientDetails{
+				AppVersion: params.AppVersion,
+				OS:         params.OS,
+				Arch:       params.Arch,
+				RemoteAddr: r.RemoteAddr,
+			}, w.Header().Get("Status"))
+		}(&params, r, w)
 
 		isLantern := app == appLantern
 		if res, err = releaseManager.CheckForUpdate(&params, isLantern); err != nil {
@@ -355,6 +369,9 @@ func (u *UpdateServer) ListenAndServe() error {
 }
 
 func (u *UpdateServer) Close() {
+	if u.instrument != nil {
+		u.instrument.Stop()
+	}
 	close(u.chClose)
 }
 
@@ -381,4 +398,23 @@ func closeWithStatus(w http.ResponseWriter, status int) {
 	if _, err := w.Write([]byte(http.StatusText(status))); err != nil {
 		log.Debugf("Unable to write status %d: %v", status, err)
 	}
+}
+
+func (u *UpdateServer) configureHoneycomb(ctx context.Context) {
+	log.Debug("Configuring Honeycomb")
+	u.configureOTEL(ctx,
+		"api.honeycomb.io:443",
+		map[string]string{
+			"x-honeycomb-team": "jskJrfYyNNp2lcJ0WQ8JfD",
+		},
+		5*time.Minute)
+}
+
+func (u *UpdateServer) configureOTEL(ctx context.Context, endpoint string, headers map[string]string, reportingInterval time.Duration) {
+	tp, stop := otel.BuildTracerProvider(&otel.Opts{
+		Endpoint: endpoint,
+		Headers:  headers,
+	})
+	u.instrument = instrument.New(tp, stop)
+	go u.instrument.ReportToOTELPeriodically(ctx, reportingInterval)
 }
