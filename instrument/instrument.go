@@ -2,116 +2,81 @@ package instrument
 
 import (
 	"context"
-	"sync"
+	"fmt"
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/getlantern/golog"
+	"github.com/getlantern/telemetry"
 	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
-var (
-	log = golog.LoggerFor("autoupdate-server.instrument")
+const (
+	otelContextKey = "otel-ctx"
+	userContextKey = "user-context"
 )
 
-type Instrument interface {
-	ReportToOTELPeriodically(ctx context.Context, reportingInterval time.Duration)
-	Stop()
-	UpdateStats(clientKey ClientDetails, status string)
-}
+var (
+	log    = golog.LoggerFor("autoupdate-server.instrument")
+	Tracer = trace.NewNoopTracerProvider().Tracer("noop") // no op by default (for tests, dev)
+)
 
-type ClientDetails struct {
-	// version of the application updating itself
-	AppVersion string
-	// operating system of target platform
-	OS string
-	// hardware architecture of target platform
-	Arch string `json:"-"`
-	// country of the user running the application updating itself
-	Country string
-	// locale of the user running the application updating itself
-	Locale string
-
-	RemoteAddr string
-}
-
-type usage struct {
-	error   string
-	success bool
-	sent    int
-	recv    int
-}
-
-type instrument struct {
-	clientStats map[ClientDetails]*usage
-	tp          trace.TracerProvider
-	statsMu     sync.Mutex
-	stop        func()
-}
-
-func New(tp trace.TracerProvider, stop func()) Instrument {
-	return &instrument{
-		clientStats: make(map[ClientDetails]*usage),
-		tp:          tp,
-		stop:        stop,
+func NewOTELMiddleware() (func(next http.Handler) http.Handler, func() error) {
+	ctx := context.Background()
+	log.Debug("Enabling OpenTelemetry trace exporting")
+	stopTracing := telemetry.EnableOTELTracingWithSampleRate(ctx, 1)
+	stop := func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		return stopTracing(ctx)
 	}
-}
-
-// UpdateStats records the client details and result of downloading an update
-func (i *instrument) UpdateStats(clientKey ClientDetails, status string) {
-	i.statsMu.Lock()
-	defer i.statsMu.Unlock()
-	u := &usage{}
-	u.success = status == "200 OK"
-	if !u.success {
-		u.error = status
-	}
-	i.clientStats[clientKey] = u
-}
-
-// ReportToOTELPeriodically periodically reports to OpenTelemetry clientStats that represent
-// when new releases of Lantern are downloaded via the auto-update server
-func (i *instrument) ReportToOTELPeriodically(ctx context.Context, interval time.Duration) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				log.Debug("Stopping periodic loading and processing of pending orders")
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c := r.Context()
+			traceID, err := trace.TraceIDFromHex(Value(c, "X-Lantern-Trace"))
+			// we only want to trace things that are part of an existing flow
+			if err != nil || !traceID.IsValid() {
+				next.ServeHTTP(w, r)
 				return
-			case <-time.After(interval):
-				i.ReportToOTEL()
 			}
-		}
-	}()
-}
 
-func (i *instrument) ReportToOTEL() {
-	i.statsMu.Lock()
-	clientStats := i.clientStats
-	i.statsMu.Unlock()
-	for key, value := range clientStats {
-		_, span := i.tp.Tracer("").
-			Start(
-				context.Background(),
-				"autoupdate_download",
-				trace.WithAttributes(
-					attribute.Int("bytes_sent", value.sent),
-					attribute.Int("bytes_recv", value.recv),
-					attribute.Int("bytes_total", value.sent+value.recv),
-					attribute.Bool("success", value.success),
-					attribute.String("error", value.error),
-					attribute.String("client_ip", key.RemoteAddr),
-					attribute.String("client_platform", key.OS),
-					attribute.String("client_arch", key.Arch),
-					attribute.String("client_version", key.AppVersion),
-					attribute.String("client_locale", key.Locale),
-					attribute.String("client_country", key.Country)))
-		span.End()
-	}
-}
+			spanOptions := []trace.SpanStartOption{
+				trace.WithAttributes(attribute.String("request.id", Value(c, "requestid"))),
+				trace.WithSpanKind(trace.SpanKindServer),
+			}
 
-func (i *instrument) Stop() {
-	if i.stop != nil {
-		i.stop()
-	}
+			// if we know userId, attach it to the span
+			if userID := Value(c, "X-Lantern-User-Id"); userID != "" {
+				spanOptions = append(spanOptions, trace.WithAttributes(semconv.EnduserIDKey.String(userID)))
+			}
+
+			sc := trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID:    traceID,
+				TraceFlags: 0,
+			})
+
+			ctx := trace.ContextWithRemoteSpanContext(UserContext(c), sc)
+
+			otelCtx, span := Tracer.Start(
+				ctx,
+				fmt.Sprintf("%s %s", r.Method, r.URL.Path),
+				spanOptions...,
+			)
+			context.WithValue(c, otelContextKey, otelCtx)
+			defer span.End()
+
+			statusCode, _ := strconv.Atoi(w.Header().Get("Status"))
+			attrs := semconv.HTTPAttributesFromHTTPStatusCode(statusCode)
+			spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCode(statusCode)
+			span.SetAttributes(attrs...)
+			span.SetStatus(spanStatus, spanMessage)
+			if err != nil {
+				span.RecordError(err)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}, stop
 }

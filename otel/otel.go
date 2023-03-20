@@ -53,7 +53,6 @@ func BuildTracerProvider(opts *Opts) (*sdktrace.TracerProvider, func()) {
 			exporter,
 			sdktrace.WithBatchTimeout(batchTimeout),
 			sdktrace.WithMaxQueueSize(maxQueueSize),
-			sdktrace.WithBlocking(),
 		),
 		sdktrace.WithResource(resource),
 	)

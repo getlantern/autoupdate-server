@@ -1,10 +1,10 @@
 package server
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/getlantern/autoupdate-server/instrument"
-	"github.com/getlantern/autoupdate-server/otel"
 	"github.com/getlantern/golog"
 	"golang.org/x/time/rate"
 )
@@ -217,7 +219,6 @@ func (g *ReleaseManager) specificLanternVersionToUpgrade(p *Params) (*Asset, err
 type UpdateServer struct {
 	chClose          chan struct{}
 	localAddr        string
-	instrument       instrument.Instrument
 	mux              *http.ServeMux
 	patchesDirectory string
 	publicAddr       string
@@ -242,7 +243,7 @@ func NewUpdateServer(publicAddr, localAddr, localpatchesDirectory string, rateLi
 	return u
 }
 
-func (u *UpdateServer) HandleRepo(app, owner, repo string) {
+func (u *UpdateServer) HandleRepo(app, owner, repo string, otelHandler func(next http.Handler) http.Handler) {
 	path := httpPathPrefix
 	if app != "" {
 		path = path + "/" + app
@@ -250,7 +251,7 @@ func (u *UpdateServer) HandleRepo(app, owner, repo string) {
 		app = appLantern
 	}
 	log.Debugf("HTTP path %q maps to repo %s/%s", path, owner, repo)
-	u.mux.Handle(path, u.handlerFor(app, owner, repo))
+	u.mux.Handle(path, otelHandler(u.handlerFor(app, owner, repo)))
 }
 
 func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
@@ -263,14 +264,28 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 	// Setting a goroutine for pulling updates periodically
 	go u.backgroundUpdate(releaseManager)
 
-	u.configureHoneycomb(context.Background())
+	//u.configureHoneycomb(context.Background())
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c := r.Context()
+		userID := userIDFromRequest(c)
+		_, span := instrument.Tracer.Start(instrument.FromContext(c), "autoupdate_download")
+		defer span.End()
+		span.SetAttributes(attribute.Int64("userId", userID))
+
 		var err error
 		var res *Result
 
+		recordError := func(w http.ResponseWriter, statusCode int, msg string, args ...any) {
+			msg = fmt.Sprintf("%s", args...)
+			log.Error(msg)
+			span.RecordError(errors.New(msg))
+			span.SetStatus(codes.Error, msg)
+			closeWithStatus(w, statusCode)
+		}
+
 		if r.Method != "POST" {
-			closeWithStatus(w, http.StatusNotFound)
+			recordError(w, http.StatusNotFound, "Invalid HTTP method")
 			return
 		}
 		defer r.Body.Close()
@@ -279,17 +294,13 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 		decoder := json.NewDecoder(r.Body)
 
 		if err = decoder.Decode(&params); err != nil {
-			closeWithStatus(w, http.StatusBadRequest)
+			recordError(w, http.StatusBadRequest, "JSON decode error")
 			return
 		}
-		defer func(params *Params, r *http.Request, w http.ResponseWriter) {
-			u.instrument.UpdateStats(instrument.ClientDetails{
-				AppVersion: params.AppVersion,
-				OS:         params.OS,
-				Arch:       params.Arch,
-				RemoteAddr: r.RemoteAddr,
-			}, w.Header().Get("Status"))
-		}(&params, r, w)
+
+		span.SetAttributes(attribute.String("appVersion", params.AppVersion))
+		span.SetAttributes(attribute.String("arch", params.Arch))
+		span.SetAttributes(attribute.String("platform", params.OS))
 
 		isLantern := app == appLantern
 		if res, err = releaseManager.CheckForUpdate(&params, isLantern); err != nil {
@@ -298,27 +309,23 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 				closeWithStatus(w, http.StatusNoContent)
 				return
 			}
-			log.Debugf("CheckForUpdate failed. App/OS/Version: %s/%s/%s, error: %q", app, params.OS, params.AppVersion, err)
-			closeWithStatus(w, http.StatusExpectationFailed)
+			recordError(w, http.StatusExpectationFailed, "CheckForUpdate failed. App/OS/Version: %s/%s/%s, error: %q", app, params.OS, params.AppVersion, err)
 			return
 		}
 
 		if !u.limiter.Allow() {
-			log.Debugf("Update skipped because current rate limit (%.0f/s) is hit.", u.rateLimit)
-			closeWithStatus(w, http.StatusNoContent)
+			recordError(w, http.StatusNoContent, "Update skipped because current rate limit (%.0f/s) is hit.", u.rateLimit)
 			return
 		}
 
 		if isLantern && params.OS == "darwin" {
 			currentVersion, err := semver.Parse(params.AppVersion)
 			if err != nil {
-				log.Debugf("Failed to parse version (%q): %v", params.AppVersion, err)
-				closeWithStatus(w, http.StatusNoContent)
+				recordError(w, http.StatusNoContent, "Failed to parse version (%q): %v", params.AppVersion, err)
 				return
 			}
 			if currentVersion.LT(v360) {
-				log.Debugf("Got %q version %q on OSX, but we cannot update it. Skipped", app, params.AppVersion)
-				closeWithStatus(w, http.StatusNoContent)
+				recordError(w, http.StatusNoContent, "Got %q version %q on OSX, but we cannot update it. Skipped", app, params.AppVersion)
 				return
 			}
 		}
@@ -332,7 +339,7 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 		var content []byte
 		if content, err = json.Marshal(res); err != nil {
 			log.Debugf("Failed to marshal response: %s", err)
-			closeWithStatus(w, http.StatusInternalServerError)
+			recordError(w, http.StatusInternalServerError, "Failed to marshal response: %w", err)
 			return
 		}
 
@@ -340,8 +347,7 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 		hash := sha256.Sum256(append(content, []byte(fmt.Sprintf("%d", nonce))...))
 		messageAuth, err := Sign(hash[:])
 		if err != nil {
-			log.Debugf("Could not sign body: %s", err)
-			closeWithStatus(w, http.StatusInternalServerError)
+			recordError(w, http.StatusInternalServerError, "Could not sign body: %w", err)
 			return
 		}
 
@@ -369,9 +375,6 @@ func (u *UpdateServer) ListenAndServe() error {
 }
 
 func (u *UpdateServer) Close() {
-	if u.instrument != nil {
-		u.instrument.Stop()
-	}
 	close(u.chClose)
 }
 
@@ -390,6 +393,7 @@ func (u *UpdateServer) backgroundUpdate(releaseManager *ReleaseManager) {
 		}
 	}
 }
+
 func closeWithStatus(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 	if status == http.StatusNoContent {
@@ -398,23 +402,4 @@ func closeWithStatus(w http.ResponseWriter, status int) {
 	if _, err := w.Write([]byte(http.StatusText(status))); err != nil {
 		log.Debugf("Unable to write status %d: %v", status, err)
 	}
-}
-
-func (u *UpdateServer) configureHoneycomb(ctx context.Context) {
-	log.Debug("Configuring Honeycomb")
-	u.configureOTEL(ctx,
-		"api.honeycomb.io:443",
-		map[string]string{
-			"x-honeycomb-team": "jskJrfYyNNp2lcJ0WQ8JfD",
-		},
-		5*time.Minute)
-}
-
-func (u *UpdateServer) configureOTEL(ctx context.Context, endpoint string, headers map[string]string, reportingInterval time.Duration) {
-	tp, stop := otel.BuildTracerProvider(&otel.Opts{
-		Endpoint: endpoint,
-		Headers:  headers,
-	})
-	u.instrument = instrument.New(tp, stop)
-	go u.instrument.ReportToOTELPeriodically(ctx, reportingInterval)
 }
