@@ -269,7 +269,7 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context()
 		userID := userIDFromRequest(c)
-		_, span := instrument.Tracer.Start(instrument.FromContext(c), "autoupdate_download")
+		_, span := instrument.Tracer.Start(c, "autoupdate_download")
 		defer span.End()
 		span.SetAttributes(attribute.Int64("userId", userID))
 
@@ -392,6 +392,10 @@ func (u *UpdateServer) backgroundUpdate(releaseManager *ReleaseManager) {
 			return
 		}
 	}
+}
+
+func (u *UpdateServer) configureDatadog() {
+
 }
 
 func closeWithStatus(w http.ResponseWriter, status int) {
