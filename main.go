@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/getlantern/autoupdate-server/instrument"
+	"github.com/getlantern/autoupdate-server/otel"
 	"github.com/getlantern/autoupdate-server/server"
 	"github.com/getlantern/golog"
 )
@@ -40,6 +42,17 @@ func main() {
 
 	server.SetPrivateKey(*flagPrivateKey)
 
+	tp, stop := otel.BuildTracerProvider(&otel.Opts{
+		Endpoint:     "api.honeycomb.io:443",
+		Headers:       map[string]string{
+			"x-honeycomb-team": os.Getenv("HONEYCOMB_API_KEY"),
+		},
+	})
+	defer stop()
+
+	otelHandler, stopTracing := instrument.NewOTELMiddleware(tp)
+	defer stopTracing()
+
 	updateServer := server.NewUpdateServer(*flagPublicAddr, *flagLocalAddr, localPatchesDirectory, *flagRateLimit)
 	for _, mapping := range strings.Split(*flagRepos, ",") {
 		fatal := func() { log.Fatalf("expect repo string in 'app:owner/repo' format, got '%s'", mapping) }
@@ -52,10 +65,11 @@ func main() {
 		if len(parts) != 2 {
 			fatal()
 		}
-		updateServer.HandleRepo(app, parts[0], parts[1])
+		repo := parts[1]
+		updateServer.HandleRepo(app, parts[0], repo, otelHandler)
 	}
 	// back compatibility
-	updateServer.HandleRepo("", *flagGithubOrganization, *flagGithubProject)
+	updateServer.HandleRepo("", *flagGithubOrganization, *flagGithubProject, otelHandler)
 
 	if err := updateServer.ListenAndServe(); err != nil {
 		log.Fatalf("ListenAndServe: ", err)
