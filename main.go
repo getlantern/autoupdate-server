@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/getlantern/autoupdate-server/instrument"
+	"github.com/getlantern/autoupdate-server/otel"
 	"github.com/getlantern/autoupdate-server/server"
 	"github.com/getlantern/golog"
 )
@@ -41,7 +42,15 @@ func main() {
 
 	server.SetPrivateKey(*flagPrivateKey)
 
-	otelHandler, stopTracing := instrument.NewOTELMiddleware()
+	tp, stop := otel.BuildTracerProvider(&otel.Opts{
+		Endpoint:     "api.honeycomb.io:443",
+		Headers:       map[string]string{
+			"x-honeycomb-team": os.Getenv("HONEYCOMB_API_KEY"),
+		},
+	})
+	defer stop()
+
+	otelHandler, stopTracing := instrument.NewOTELMiddleware(tp)
 	defer stopTracing()
 
 	updateServer := server.NewUpdateServer(*flagPublicAddr, *flagLocalAddr, localPatchesDirectory, *flagRateLimit)

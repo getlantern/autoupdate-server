@@ -9,14 +9,11 @@ import (
 
 	"github.com/getlantern/golog"
 	"github.com/getlantern/telemetry"
-	"github.com/opentracing/opentracing-go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -30,25 +27,23 @@ var (
 	Tracer = otel.Tracer("autoupdate-server")
 )
 
-func NewOTELMiddleware() (func(next http.Handler) http.Handler, func() error) {
+type Opts struct {
+	HoneycombSampleRate int
+	ReportingInterval time.Duration
+}
+
+func NewOTELMiddleware(tp *sdktrace.TracerProvider) (func(next http.Handler) http.Handler, func() error) {
 	ctx := context.Background()
 	log.Debug("Enabling OpenTelemetry trace exporting")
 	stopTracing := telemetry.EnableOTELTracingWithSampleRate(ctx, 1)
 
-	Tracer = otel.Tracer("autoupdate-server")
+	Tracer = tp.Tracer("autoupdate-server")
 
-	// Start the regular tracer and return it as an opentracing.Tracer interface. You
-	// may use the same set of options as you normally would with the Datadog tracer.
-	t := opentracer.New(tracer.WithServiceName("autoupdate-server"))
-
-	// Set the global OpenTracing tracer.
-	opentracing.SetGlobalTracer(t)
 
 	stop := func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer func() {
 			cancel()
-			tracer.Stop()
 		}()
 		return stopTracing(ctx)
 	}

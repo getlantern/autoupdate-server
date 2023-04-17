@@ -394,10 +394,6 @@ func (u *UpdateServer) backgroundUpdate(releaseManager *ReleaseManager) {
 	}
 }
 
-func (u *UpdateServer) configureDatadog() {
-
-}
-
 func closeWithStatus(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 	if status == http.StatusNoContent {
