@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -36,10 +35,6 @@ var (
 	lastLanternVersionForOSXYosemite = "5.4.1"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 var log = golog.LoggerFor("autoupdate-server")
 
 // Initiative type.
@@ -47,8 +42,8 @@ type Initiative string
 
 const (
 	INITIATIVE_NEVER  Initiative = "never"
-	INITIATIVE_AUTO              = "auto"
-	INITIATIVE_MANUAL            = "manual"
+	INITIATIVE_AUTO   Initiative = "auto"
+	INITIATIVE_MANUAL Initiative = "manual"
 )
 
 // PatchType represents the type of a binary patch, if any. Only bsdiff is supported
@@ -56,7 +51,7 @@ type PatchType string
 
 const (
 	PATCHTYPE_BSDIFF PatchType = "bsdiff"
-	PATCHTYPE_NONE             = ""
+	PATCHTYPE_NONE   PatchType = ""
 )
 
 // Params represent parameters sent by the go-update client.
@@ -276,8 +271,8 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 		var err error
 		var res *Result
 
-		recordError := func(w http.ResponseWriter, statusCode int, msg string, args ...any) {
-			msg = fmt.Sprintf("%s", args...)
+		recordError := func(w http.ResponseWriter, statusCode int, args ...any) {
+			msg := fmt.Sprintf("%s", args...)
 			log.Error(msg)
 			span.RecordError(errors.New(msg))
 			span.SetStatus(codes.Error, msg)

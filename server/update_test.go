@@ -2,7 +2,8 @@ package server
 
 import (
 	"fmt"
-	"io/ioutil"
+	"net/http"
+	"os"
 	"testing"
 
 	"github.com/getlantern/go-update"
@@ -21,13 +22,17 @@ func init() {
 func TestReachServer(t *testing.T) {
 	updateServer := NewUpdateServer(publicAddr, localAddr, ".", 0)
 
-	updateServer.HandleRepo("", "getlantern", "lantern")
-	updateServer.HandleRepo("lantern", "getlantern", "lantern")
+	updateServer.HandleRepo("", "getlantern", "lantern", func(next http.Handler) http.Handler {
+		return next
+	})
+	updateServer.HandleRepo("lantern", "getlantern", "lantern", func(next http.Handler) http.Handler {
+		return next
+	})
 
 	go updateServer.ListenAndServe()
 	defer updateServer.Close()
 
-	publicKey, err := ioutil.ReadFile("../_resources/example-keys/public.pub")
+	publicKey, err := os.ReadFile("../_resources/example-keys/public.pub")
 	if err != nil {
 		t.Fatalf("Failed to open public key: %v", err)
 	}

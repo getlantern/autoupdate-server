@@ -1,6 +1,6 @@
 module github.com/getlantern/autoupdate-server
 
-go 1.18
+go 1.21
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
