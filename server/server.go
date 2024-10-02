@@ -264,9 +264,13 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context()
 		userID := userIDFromRequest(c)
+		// this operation actually isn't related to download, it's responsible
+		// for checking if there is an update available for the client and
+		// return the proper Result response.
 		_, span := instrument.Tracer.Start(c, "autoupdate_download")
 		defer span.End()
 		span.SetAttributes(attribute.Int64("userId", userID))
+		span.SetAttributes(attribute.String("httpMethod", r.Method))
 
 		var err error
 		var res *Result
@@ -276,6 +280,7 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 			log.Error(msg)
 			span.RecordError(errors.New(msg))
 			span.SetStatus(codes.Error, msg)
+			span.SetAttributes(attribute.Int("responseStatusCode", statusCode))
 			closeWithStatus(w, statusCode)
 		}
 
@@ -300,11 +305,11 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 		isLantern := app == appLantern
 		if res, err = releaseManager.CheckForUpdate(&params, isLantern); err != nil {
 			if err == ErrNoUpdateAvailable {
-				log.Debugf("No update available for: %s/%s/%s", app, params.OS, params.AppVersion)
+				log.Debugf("No update available for: %s/%s/%s", app, params.OS, params.Arch, params.AppVersion)
 				closeWithStatus(w, http.StatusNoContent)
 				return
 			}
-			recordError(w, http.StatusExpectationFailed, "CheckForUpdate failed. App/OS/Version: %s/%s/%s, error: %q", app, params.OS, params.AppVersion, err)
+			recordError(w, http.StatusExpectationFailed, "CheckForUpdate failed. App/OS/Version: %s/%s/%s/%s, error: %q", app, params.OS, params.Arch, params.AppVersion, err)
 			return
 		}
 
@@ -351,7 +356,13 @@ func (u *UpdateServer) handlerFor(app, owner, repo string) http.Handler {
 
 		if _, err := w.Write(content); err != nil {
 			log.Debugf("Unable to write response: %s", err)
+			recordError(w, http.StatusInternalServerError, "Unable to write response: %w", err)
+			return
 		}
+
+		w.WriteHeader(http.StatusOK)
+		span.SetAttributes(attribute.Int("responseStatusCode", http.StatusOK))
+		span.SetStatus(codes.Ok, "OK")
 	})
 }
 
